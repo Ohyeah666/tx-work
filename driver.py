@@ -6,6 +6,7 @@ import ray
 import os
 import numpy as np
 import random
+from datetime import datetime
 
 from model import PolicyNet, QNet
 from runner import RLRunner
@@ -43,6 +44,33 @@ def writeToTensorBoard(writer, tensorboardData, curr_episode):
     writer.add_scalar(tag='Perf/Success Rate', scalar_value=success_rate, global_step=curr_episode)
 
 
+def format_elapsed_for_name(start_time):
+    total_seconds = int((datetime.now() - start_time).total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02d}h{minutes:02d}m{seconds:02d}s"
+
+
+def finalize_model_run_dir(model_run_dir, training_start_time):
+    elapsed_str = format_elapsed_for_name(training_start_time)
+    base_dir = os.path.dirname(model_run_dir)
+    run_prefix = os.path.basename(model_run_dir).split('__elapsed_')[0]
+    target_dir = os.path.join(base_dir, f"{run_prefix}__elapsed_{elapsed_str}")
+
+    if model_run_dir == target_dir:
+        return model_run_dir
+
+    if os.path.exists(target_dir):
+        suffix = 1
+        while os.path.exists(f"{target_dir}_{suffix}"):
+            suffix += 1
+        target_dir = f"{target_dir}_{suffix}"
+
+    os.rename(model_run_dir, target_dir)
+    return target_dir
+
+
 def main():
     # use GPU/CPU for driver/worker
     device = torch.device('cuda') if USE_GPU_GLOBAL else torch.device('cpu')
@@ -72,6 +100,13 @@ def main():
     
     # target entropy for SAC
     entropy_target = 0.05 * (-np.log(1 / K_SIZE))
+
+    training_start_time = datetime.now()
+    print(f"Training started at {training_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    run_start_str = training_start_time.strftime('%Y%m%d_%H%M%S')
+    model_run_dir = os.path.join(model_path, f"run_{run_start_str}__elapsed_running")
+    os.makedirs(model_run_dir, exist_ok=True)
+    print(f"Model checkpoints directory: {model_run_dir}")
 
     curr_episode = 0
     target_q_update_counter = 1
@@ -266,6 +301,9 @@ def main():
 
             # write record to tensorboard
             if len(training_data) >= SUMMARY_WINDOW:
+                elapsed_time = datetime.now() - training_start_time
+                elapsed_str = str(elapsed_time).split('.')[0]
+                print(f"[Episode {curr_episode}] Elapsed training time: {elapsed_str}")
                 writeToTensorBoard(writer, training_data, curr_episode)
                 training_data = []
                 perf_metrics = {}
@@ -311,15 +349,19 @@ def main():
                                 "q_net2_lr_decay": q_net2_lr_decay.state_dict(),
                                 "log_alpha_lr_decay": log_alpha_lr_decay.state_dict()
                         }
-                path_checkpoint = "./" + model_path + "/checkpoint.pth"
+                path_checkpoint = os.path.join(model_run_dir, 'checkpoint.pth')
                 torch.save(checkpoint, path_checkpoint)
-                print('Saved model', end='\n')
+                print(f'Saved model to {path_checkpoint}', end='\n')
                     
     
     except KeyboardInterrupt:
         print("CTRL_C pressed. Killing remote workers")
         for a in meta_agents:
             ray.kill(a)
+    finally:
+        if os.path.exists(model_run_dir):
+            final_model_run_dir = finalize_model_run_dir(model_run_dir, training_start_time)
+            print(f"Final checkpoint directory: {final_model_run_dir}")
 
 
 if __name__ == "__main__":
