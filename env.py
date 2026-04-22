@@ -13,7 +13,7 @@ class Env():
         # import environment ground truth from dungeon files
         self.test = test
         if self.test:
-            self.map_dir = f'DungeonMaps/test'  # change to 'complex', 'medium', and 'easy'
+            self.map_dir = f'DungeonMaps/complex'  # change to 'complex', 'medium', and 'easy'
         else:
             self.map_dir = f'DungeonMaps/train'
         self.map_list = os.listdir(self.map_dir)
