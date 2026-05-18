@@ -1,0 +1,205 @@
+{
+    "os": "Linux-5.15.0-140-generic-x86_64-with-glibc2.31",
+    "python": "3.10.8",
+    "heartbeatAt": "2026-05-18T12:55:02.832404",
+    "startedAt": "2026-05-18T12:54:57.949483",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/txuan/ARiADNE/driver.py",
+    "codePath": "driver.py",
+    "git": {
+        "remote": "https://github.com/marmotlab/ARiADNE.git",
+        "commit": "a7223c2d1a013c5963bfda930e9d0f28bce91043"
+    },
+    "email": "1504453152@qq.com",
+    "root": "/home/txuan/ARiADNE",
+    "host": "huiwei-System-Product-Name",
+    "username": "txuan",
+    "executable": "/home/txuan/miniconda3/envs/ariadne/bin/python",
+    "cpu_count": 16,
+    "cpu_count_logical": 32,
+    "cpu_freq": {
+        "current": 3026.79978125,
+        "min": 3000.0,
+        "max": 4300.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3857.593,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        },
+        {
+            "current": 3000.0,
+            "min": 3000.0,
+            "max": 4300.0
+        }
+    ],
+    "disk": {
+        "total": 3753.978012084961,
+        "used": 777.3066940307617
+    },
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_total": 25757220864
+        }
+    ],
+    "memory": {
+        "total": 123.46826934814453
+    }
+}

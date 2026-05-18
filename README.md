@@ -12,14 +12,16 @@
 * `scipy == 1.9.3`
 * `matplotlib == 3.6.2`
 * `tensorboard == 2.11.0`
+* `wandb`
 
 
 #### Training
-1. Set training parameters in `parameters.py`.
-2. Run `python driver.py`
+1. Set training parameters in `parameter.py`.
+2. Set `USE_WANDB`, `WANDB_PROJECT`, `WANDB_ENTITY`, and `WANDB_MODE` in `parameter.py` if you want to log training metrics to Weights & Biases.
+3. Run `python driver.py`
 
 #### Evaluation
-1. Set parameters in `test_parameters.py`.
+1. Set parameters in `test_parameter.py`.
 2. Run `test_driver.py`
 
 ## Files

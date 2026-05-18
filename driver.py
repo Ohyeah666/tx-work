@@ -8,6 +8,11 @@ import numpy as np
 import random
 from datetime import datetime
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
 from model import PolicyNet, QNet
 from runner import RLRunner
 from parameter import *
@@ -21,27 +26,66 @@ if not os.path.exists(model_path):
 if not os.path.exists(gifs_path):
     os.makedirs(gifs_path)
 
+TENSORBOARD_METRIC_TAGS = [
+    'Perf/Reward',
+    'Losses/Value',
+    'Losses/Policy Loss',
+    'Losses/Q Value Loss',
+    'Losses/Entropy',
+    'Losses/Policy Grad Norm',
+    'Losses/Q Value Grad Norm',
+    'Losses/Log Alpha',
+    'Losses/Alpha Loss',
+    'Perf/Travel Distance',
+    'Perf/Success Rate',
+    'Perf/Explored Rate',
+]
 
-def writeToTensorBoard(writer, tensorboardData, curr_episode):
+
+def init_wandb(run_name):
+    if not USE_WANDB:
+        return None
+
+    if wandb is None:
+        print("wandb is not installed. Install it with `pip install wandb` to enable wandb logging.")
+        return None
+
+    config = {
+        name: value
+        for name, value in globals().items()
+        if name.isupper() and isinstance(value, (int, float, str, bool, type(None)))
+    }
+    config.update({
+        'model_path': model_path,
+        'train_path': train_path,
+        'gifs_path': gifs_path,
+    })
+
+    return wandb.init(
+        project=WANDB_PROJECT,
+        entity=WANDB_ENTITY,
+        name=run_name,
+        mode=WANDB_MODE,
+        config=config,
+        dir=train_path,
+        sync_tensorboard=False,
+    )
+
+
+def writeToTensorBoard(writer, tensorboardData, curr_episode, wandb_run=None):
     # each row in tensorboardData represents an episode
     # each column is a specific metric
 
     tensorboardData = np.array(tensorboardData)
     tensorboardData = list(np.nanmean(tensorboardData, axis=0))
-    reward, value, policyLoss, qValueLoss, entropy, policyGradNorm, qValueGradNorm, log_alpha, alphaLoss, travel_dist, success_rate, explored_rate = tensorboardData
+    metric_values = [float(value) for value in tensorboardData]
+    metrics = dict(zip(TENSORBOARD_METRIC_TAGS, metric_values))
 
-    writer.add_scalar(tag='Losses/Value', scalar_value=value, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Policy Loss', scalar_value=policyLoss, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Alpha Loss', scalar_value=alphaLoss, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Q Value Loss', scalar_value=qValueLoss, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Entropy', scalar_value=entropy, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Policy Grad Norm', scalar_value=policyGradNorm, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Q Value Grad Norm', scalar_value=qValueGradNorm, global_step=curr_episode)
-    writer.add_scalar(tag='Losses/Log Alpha', scalar_value=log_alpha, global_step=curr_episode)
-    writer.add_scalar(tag='Perf/Reward', scalar_value=reward, global_step=curr_episode)
-    writer.add_scalar(tag='Perf/Travel Distance', scalar_value=travel_dist, global_step=curr_episode)
-    writer.add_scalar(tag='Perf/Explored Rate', scalar_value=explored_rate, global_step=curr_episode)
-    writer.add_scalar(tag='Perf/Success Rate', scalar_value=success_rate, global_step=curr_episode)
+    for tag, value in metrics.items():
+        writer.add_scalar(tag=tag, scalar_value=value, global_step=curr_episode)
+
+    if wandb_run is not None:
+        wandb_run.log(metrics, step=curr_episode)
 
 
 def format_elapsed_for_name(start_time):
@@ -104,6 +148,8 @@ def main():
     training_start_time = datetime.now()
     print(f"Training started at {training_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     run_start_str = training_start_time.strftime('%Y%m%d_%H%M%S')
+    run_name = f"{FOLDER_NAME}_{run_start_str}"
+    wandb_run = init_wandb(run_name)
     model_run_dir = os.path.join(model_path, f"run_{run_start_str}__elapsed_running")
     os.makedirs(model_run_dir, exist_ok=True)
     print(f"Model checkpoints directory: {model_run_dir}")
@@ -304,7 +350,7 @@ def main():
                 elapsed_time = datetime.now() - training_start_time
                 elapsed_str = str(elapsed_time).split('.')[0]
                 print(f"[Episode {curr_episode}] Elapsed training time: {elapsed_str}")
-                writeToTensorBoard(writer, training_data, curr_episode)
+                writeToTensorBoard(writer, training_data, curr_episode, wandb_run)
                 training_data = []
                 perf_metrics = {}
                 for n in metric_name:
@@ -362,6 +408,8 @@ def main():
         if os.path.exists(model_run_dir):
             final_model_run_dir = finalize_model_run_dir(model_run_dir, training_start_time)
             print(f"Final checkpoint directory: {final_model_run_dir}")
+        if wandb_run is not None:
+            wandb_run.finish()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,985 @@
+Model checkpoints directory: model/ae_clean/run_20260518_205455__elapsed_running
+[36m(RLRunner pid=3159652)[39m starting episode 4 on metaAgent 3
+[36m(RLRunner pid=3159653)[39m starting episode 5 on metaAgent 4
+[36m(RLRunner pid=3159676)[39m starting episode 28 on metaAgent 27
+[36m(RLRunner pid=3159654)[39m starting episode 6 on metaAgent 5
+[36m(RLRunner pid=3159679)[39m starting episode 31 on metaAgent 30
+[36m(RLRunner pid=3159660)[39m starting episode 12 on metaAgent 11
+[36m(RLRunner pid=3159678)[39m starting episode 30 on metaAgent 29
+[36m(RLRunner pid=3159669)[39m starting episode 21 on metaAgent 20
+[36m(RLRunner pid=3159655)[39m starting episode 7 on metaAgent 6
+[36m(RLRunner pid=3159673)[39m starting episode 25 on metaAgent 24
+[36m(RLRunner pid=3159650)[39m starting episode 2 on metaAgent 1
+[36m(RLRunner pid=3159657)[39m starting episode 9 on metaAgent 8
+[36m(RLRunner pid=3159672)[39m starting episode 24 on metaAgent 23
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[33m(raylet)[39m /home/txuan/miniconda3/envs/ariadne/lib/python3.10/site-packages/ray/air/_internal/remote_storage.py:4: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+[33m(raylet)[39m   from pkg_resources import packaging
+[36m(RLRunner pid=3159659)[39m starting episode 11 on metaAgent 10
+[36m(RLRunner pid=3159671)[39m starting episode 23 on metaAgent 22
+[36m(RLRunner pid=3159674)[39m starting episode 26 on metaAgent 25
+[36m(RLRunner pid=3159664)[39m starting episode 16 on metaAgent 15
+[36m(RLRunner pid=3159666)[39m starting episode 18 on metaAgent 17
+[36m(RLRunner pid=3159651)[39m starting episode 3 on metaAgent 2
+[36m(RLRunner pid=3159661)[39m starting episode 13 on metaAgent 12
+[36m(RLRunner pid=3159665)[39m starting episode 17 on metaAgent 16
+[36m(RLRunner pid=3159662)[39m starting episode 14 on metaAgent 13
+[36m(RLRunner pid=3159658)[39m starting episode 10 on metaAgent 9
+[36m(RLRunner pid=3159656)[39m starting episode 8 on metaAgent 7
+[36m(RLRunner pid=3159680)[39m starting episode 32 on metaAgent 31
+[36m(RLRunner pid=3159670)[39m starting episode 22 on metaAgent 21
+[36m(RLRunner pid=3159663)[39m starting episode 15 on metaAgent 14
+[36m(RLRunner pid=3159667)[39m starting episode 19 on metaAgent 18
+[36m(RLRunner pid=3159668)[39m starting episode 20 on metaAgent 19
+[36m(RLRunner pid=3159677)[39m starting episode 29 on metaAgent 28
+[36m(RLRunner pid=3159649)[39m starting episode 1 on metaAgent 0
+[36m(RLRunner pid=3159675)[39m starting episode 27 on metaAgent 26
+[36m(RLRunner pid=3159653)[39m starting episode 33 on metaAgent 4
+[36m(RLRunner pid=3159652)[39m starting episode 34 on metaAgent 3
+[36m(RLRunner pid=3159661)[39m starting episode 35 on metaAgent 12
+[36m(RLRunner pid=3159656)[39m starting episode 36 on metaAgent 7
+[36m(RLRunner pid=3159650)[39m starting episode 37 on metaAgent 1
+[36m(RLRunner pid=3159671)[39m starting episode 38 on metaAgent 22
+[36m(RLRunner pid=3159676)[39m starting episode 39 on metaAgent 27
+[36m(RLRunner pid=3159662)[39m starting episode 40 on metaAgent 13
+[36m(RLRunner pid=3159654)[39m starting episode 41 on metaAgent 5
+[36m(RLRunner pid=3159663)[39m starting episode 42 on metaAgent 14
+[36m(RLRunner pid=3159680)[39m starting episode 43 on metaAgent 31
+[36m(RLRunner pid=3159672)[39m starting episode 44 on metaAgent 23
+[36m(RLRunner pid=3159651)[39m starting episode 45 on metaAgent 2
+[36m(RLRunner pid=3159669)[39m starting episode 46 on metaAgent 20
+[36m(RLRunner pid=3159677)[39m starting episode 47 on metaAgent 28
+[36m(RLRunner pid=3159673)[39m starting episode 48 on metaAgent 24
+training
+[36m(RLRunner pid=3159674)[39m starting episode 49 on metaAgent 25
+training
+[36m(RLRunner pid=3159655)[39m starting episode 50 on metaAgent 6
+training
+[36m(RLRunner pid=3159649)[39m starting episode 51 on metaAgent 0
+training
+[36m(RLRunner pid=3159664)[39m starting episode 52 on metaAgent 15
+training
+[36m(RLRunner pid=3159665)[39m starting episode 53 on metaAgent 16
+training
+[36m(RLRunner pid=3159673)[39m starting episode 54 on metaAgent 24
+training
+[36m(RLRunner pid=3159677)[39m starting episode 55 on metaAgent 28
+training
+[36m(RLRunner pid=3159670)[39m starting episode 56 on metaAgent 21
+update target q net
+training
+[36m(RLRunner pid=3159659)[39m starting episode 57 on metaAgent 10
+training
+[36m(RLRunner pid=3159675)[39m starting episode 58 on metaAgent 26
+training
+[36m(RLRunner pid=3159649)[39m starting episode 59 on metaAgent 0
+training
+[36m(RLRunner pid=3159660)[39m starting episode 60 on metaAgent 11
+training
+[36m(RLRunner pid=3159653)[39m starting episode 61 on metaAgent 4
+training
+[36m(RLRunner pid=3159666)[39m starting episode 62 on metaAgent 17
+training
+[36m(RLRunner pid=3159652)[39m starting episode 63 on metaAgent 3
+training
+[36m(RLRunner pid=3159675)[39m starting episode 64 on metaAgent 26
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159650)[39m starting episode 65 on metaAgent 1
+training
+[36m(RLRunner pid=3159666)[39m starting episode 66 on metaAgent 17
+training
+[36m(RLRunner pid=3159678)[39m starting episode 67 on metaAgent 29
+training
+[36m(RLRunner pid=3159668)[39m starting episode 68 on metaAgent 19
+training
+[36m(RLRunner pid=3159663)[39m starting episode 69 on metaAgent 14
+training
+[36m(RLRunner pid=3159653)[39m starting episode 70 on metaAgent 4
+training
+[36m(RLRunner pid=3159680)[39m starting episode 71 on metaAgent 31
+training
+[36m(RLRunner pid=3159656)[39m starting episode 72 on metaAgent 7
+update target q net
+training
+[36m(RLRunner pid=3159659)[39m starting episode 73 on metaAgent 10
+training
+[36m(RLRunner pid=3159672)[39m starting episode 74 on metaAgent 23
+training
+[36m(RLRunner pid=3159679)[39m starting episode 75 on metaAgent 30
+training
+[36m(RLRunner pid=3159651)[39m starting episode 76 on metaAgent 2
+training
+[36m(RLRunner pid=3159667)[39m starting episode 77 on metaAgent 18
+training
+[36m(RLRunner pid=3159658)[39m starting episode 78 on metaAgent 9
+training
+[36m(RLRunner pid=3159661)[39m starting episode 79 on metaAgent 12
+training
+[36m(RLRunner pid=3159659)[39m starting episode 80 on metaAgent 10
+[Episode 80] Elapsed training time: 0:04:06
+update target q net
+training
+[36m(RLRunner pid=3159664)[39m starting episode 81 on metaAgent 15
+training
+[36m(RLRunner pid=3159672)[39m starting episode 82 on metaAgent 23
+training
+[36m(RLRunner pid=3159653)[39m starting episode 83 on metaAgent 4
+training
+[36m(RLRunner pid=3159654)[39m starting episode 84 on metaAgent 5
+training
+[36m(RLRunner pid=3159651)[39m starting episode 85 on metaAgent 2
+training
+[36m(RLRunner pid=3159674)[39m starting episode 86 on metaAgent 25
+training
+[36m(RLRunner pid=3159673)[39m starting episode 87 on metaAgent 24
+training
+[36m(RLRunner pid=3159649)[39m starting episode 88 on metaAgent 0
+update target q net
+training
+[36m(RLRunner pid=3159663)[39m starting episode 89 on metaAgent 14
+training
+[36m(RLRunner pid=3159662)[39m starting episode 90 on metaAgent 13
+training
+[36m(RLRunner pid=3159669)[39m starting episode 91 on metaAgent 20
+training
+[36m(RLRunner pid=3159667)[39m starting episode 92 on metaAgent 18
+training
+[36m(RLRunner pid=3159656)[39m starting episode 93 on metaAgent 7
+training
+[36m(RLRunner pid=3159655)[39m starting episode 94 on metaAgent 6
+training
+[36m(RLRunner pid=3159653)[39m starting episode 95 on metaAgent 4
+training
+[36m(RLRunner pid=3159667)[39m starting episode 96 on metaAgent 18
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159668)[39m starting episode 97 on metaAgent 19
+training
+[36m(RLRunner pid=3159675)[39m starting episode 98 on metaAgent 26
+training
+[36m(RLRunner pid=3159663)[39m starting episode 99 on metaAgent 14
+training
+[36m(RLRunner pid=3159676)[39m starting episode 100 on metaAgent 27
+training
+[36m(RLRunner pid=3159649)[39m starting episode 101 on metaAgent 0
+training
+[36m(RLRunner pid=3159659)[39m starting episode 102 on metaAgent 10
+training
+[36m(RLRunner pid=3159652)[39m starting episode 103 on metaAgent 3
+[36m(RLRunner pid=3159676)[39m gif complete
+[36m(RLRunner pid=3159676)
+training
+[36m(RLRunner pid=3159667)[39m starting episode 104 on metaAgent 18
+update target q net
+training
+[36m(RLRunner pid=3159677)[39m starting episode 105 on metaAgent 28
+training
+[36m(RLRunner pid=3159680)[39m starting episode 106 on metaAgent 31
+training
+[36m(RLRunner pid=3159672)[39m starting episode 107 on metaAgent 23
+training
+[36m(RLRunner pid=3159670)[39m starting episode 108 on metaAgent 21
+training
+[36m(RLRunner pid=3159676)[39m starting episode 109 on metaAgent 27
+training
+[36m(RLRunner pid=3159666)[39m starting episode 110 on metaAgent 17
+training
+[36m(RLRunner pid=3159669)[39m starting episode 111 on metaAgent 20
+training
+[36m(RLRunner pid=3159653)[39m starting episode 112 on metaAgent 4
+[Episode 112] Elapsed training time: 0:06:52
+update target q net
+training
+[36m(RLRunner pid=3159680)[39m starting episode 113 on metaAgent 31
+training
+[36m(RLRunner pid=3159654)[39m starting episode 114 on metaAgent 5
+training
+[36m(RLRunner pid=3159658)[39m starting episode 115 on metaAgent 9
+training
+[36m(RLRunner pid=3159661)[39m starting episode 116 on metaAgent 12
+training
+[36m(RLRunner pid=3159649)[39m starting episode 117 on metaAgent 0
+training
+[36m(RLRunner pid=3159664)[39m starting episode 118 on metaAgent 15
+training
+[36m(RLRunner pid=3159677)[39m starting episode 119 on metaAgent 28
+training
+[36m(RLRunner pid=3159663)[39m starting episode 120 on metaAgent 14
+update target q net
+training
+[36m(RLRunner pid=3159650)[39m starting episode 121 on metaAgent 1
+training
+[36m(RLRunner pid=3159665)[39m starting episode 122 on metaAgent 16
+training
+[36m(RLRunner pid=3159671)[39m starting episode 123 on metaAgent 22
+training
+[36m(RLRunner pid=3159652)[39m starting episode 124 on metaAgent 3
+training
+[36m(RLRunner pid=3159678)[39m starting episode 125 on metaAgent 29
+training
+[36m(RLRunner pid=3159670)[39m starting episode 126 on metaAgent 21
+training
+[36m(RLRunner pid=3159655)[39m starting episode 127 on metaAgent 6
+training
+[36m(RLRunner pid=3159680)[39m starting episode 128 on metaAgent 31
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159659)[39m starting episode 129 on metaAgent 10
+training
+[36m(RLRunner pid=3159657)[39m starting episode 130 on metaAgent 8
+training
+[36m(RLRunner pid=3159652)[39m starting episode 131 on metaAgent 3
+training
+[36m(RLRunner pid=3159669)[39m starting episode 132 on metaAgent 20
+training
+[36m(RLRunner pid=3159675)[39m starting episode 133 on metaAgent 26
+training
+[36m(RLRunner pid=3159649)[39m starting episode 134 on metaAgent 0
+training
+[36m(RLRunner pid=3159666)[39m starting episode 135 on metaAgent 17
+training
+[36m(RLRunner pid=3159669)[39m starting episode 136 on metaAgent 20
+update target q net
+training
+[36m(RLRunner pid=3159660)[39m starting episode 137 on metaAgent 11
+training
+[36m(RLRunner pid=3159666)[39m starting episode 138 on metaAgent 17
+training
+[36m(RLRunner pid=3159660)[39m starting episode 139 on metaAgent 11
+training
+[36m(RLRunner pid=3159657)[39m starting episode 140 on metaAgent 8
+training
+[36m(RLRunner pid=3159650)[39m starting episode 141 on metaAgent 1
+training
+[36m(RLRunner pid=3159679)[39m starting episode 142 on metaAgent 30
+training
+[36m(RLRunner pid=3159677)[39m starting episode 143 on metaAgent 28
+training
+[36m(RLRunner pid=3159659)[39m starting episode 144 on metaAgent 10
+[Episode 144] Elapsed training time: 0:09:37
+update target q net
+training
+[36m(RLRunner pid=3159649)[39m starting episode 145 on metaAgent 0
+training
+[36m(RLRunner pid=3159659)[39m starting episode 146 on metaAgent 10
+training
+[36m(RLRunner pid=3159669)[39m starting episode 147 on metaAgent 20
+training
+[36m(RLRunner pid=3159680)[39m starting episode 148 on metaAgent 31
+training
+[36m(RLRunner pid=3159671)[39m starting episode 149 on metaAgent 22
+training
+[36m(RLRunner pid=3159678)[39m starting episode 150 on metaAgent 29
+training
+[36m(RLRunner pid=3159673)[39m starting episode 151 on metaAgent 24
+training
+[36m(RLRunner pid=3159664)[39m starting episode 152 on metaAgent 15
+update target q net
+training
+[36m(RLRunner pid=3159663)[39m starting episode 153 on metaAgent 14
+training
+[36m(RLRunner pid=3159678)[39m starting episode 154 on metaAgent 29
+training
+[36m(RLRunner pid=3159670)[39m starting episode 155 on metaAgent 21
+training
+[36m(RLRunner pid=3159652)[39m starting episode 156 on metaAgent 3
+training
+[36m(RLRunner pid=3159672)[39m starting episode 157 on metaAgent 23
+training
+[36m(RLRunner pid=3159653)[39m starting episode 158 on metaAgent 4
+training
+[36m(RLRunner pid=3159658)[39m starting episode 159 on metaAgent 9
+training
+[36m(RLRunner pid=3159660)[39m starting episode 160 on metaAgent 11
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159663)[39m starting episode 161 on metaAgent 14
+training
+[36m(RLRunner pid=3159668)[39m starting episode 162 on metaAgent 19
+training
+[36m(RLRunner pid=3159664)[39m starting episode 163 on metaAgent 15
+training
+[36m(RLRunner pid=3159673)[39m starting episode 164 on metaAgent 24
+training
+[36m(RLRunner pid=3159677)[39m starting episode 165 on metaAgent 28
+training
+[36m(RLRunner pid=3159679)[39m starting episode 166 on metaAgent 30
+training
+[36m(RLRunner pid=3159671)[39m starting episode 167 on metaAgent 22
+training
+[36m(RLRunner pid=3159662)[39m starting episode 168 on metaAgent 13
+update target q net
+training
+[36m(RLRunner pid=3159650)[39m starting episode 169 on metaAgent 1
+training
+[36m(RLRunner pid=3159663)[39m starting episode 170 on metaAgent 14
+training
+[36m(RLRunner pid=3159661)[39m starting episode 171 on metaAgent 12
+training
+[36m(RLRunner pid=3159659)[39m starting episode 172 on metaAgent 10
+training
+[36m(RLRunner pid=3159653)[39m starting episode 173 on metaAgent 4
+training
+[36m(RLRunner pid=3159662)[39m starting episode 174 on metaAgent 13
+training
+[36m(RLRunner pid=3159654)[39m starting episode 175 on metaAgent 5
+training
+[36m(RLRunner pid=3159670)[39m starting episode 176 on metaAgent 21
+[Episode 176] Elapsed training time: 0:12:23
+update target q net
+training
+[36m(RLRunner pid=3159673)[39m starting episode 177 on metaAgent 24
+training
+[36m(RLRunner pid=3159668)[39m starting episode 178 on metaAgent 19
+training
+[36m(RLRunner pid=3159678)[39m starting episode 179 on metaAgent 29
+training
+[36m(RLRunner pid=3159659)[39m starting episode 180 on metaAgent 10
+training
+[36m(RLRunner pid=3159662)[39m starting episode 181 on metaAgent 13
+training
+[36m(RLRunner pid=3159652)[39m starting episode 182 on metaAgent 3
+training
+[36m(RLRunner pid=3159675)[39m starting episode 183 on metaAgent 26
+training
+[36m(RLRunner pid=3159678)[39m starting episode 184 on metaAgent 29
+update target q net
+training
+[36m(RLRunner pid=3159651)[39m starting episode 185 on metaAgent 2
+training
+[36m(RLRunner pid=3159656)[39m starting episode 186 on metaAgent 7
+training
+[36m(RLRunner pid=3159654)[39m starting episode 187 on metaAgent 5
+training
+[36m(RLRunner pid=3159677)[39m starting episode 188 on metaAgent 28
+training
+[36m(RLRunner pid=3159671)[39m starting episode 189 on metaAgent 22
+training
+[36m(RLRunner pid=3159652)[39m starting episode 190 on metaAgent 3
+training
+[36m(RLRunner pid=3159649)[39m starting episode 191 on metaAgent 0
+training
+[36m(RLRunner pid=3159655)[39m starting episode 192 on metaAgent 6
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159679)[39m starting episode 193 on metaAgent 30
+training
+[36m(RLRunner pid=3159669)[39m starting episode 194 on metaAgent 20
+training
+[36m(RLRunner pid=3159658)[39m starting episode 195 on metaAgent 9
+training
+[36m(RLRunner pid=3159657)[39m starting episode 196 on metaAgent 8
+training
+[36m(RLRunner pid=3159651)[39m starting episode 197 on metaAgent 2
+training
+[36m(RLRunner pid=3159668)[39m starting episode 198 on metaAgent 19
+training
+[36m(RLRunner pid=3159671)[39m starting episode 199 on metaAgent 22
+training
+[36m(RLRunner pid=3159662)[39m starting episode 200 on metaAgent 13
+update target q net
+training
+[36m(RLRunner pid=3159655)[39m starting episode 201 on metaAgent 6
+[36m(RLRunner pid=3159662)[39m gif complete
+[36m(RLRunner pid=3159662)
+training
+[36m(RLRunner pid=3159668)[39m starting episode 202 on metaAgent 19
+training
+[36m(RLRunner pid=3159649)[39m starting episode 203 on metaAgent 0
+training
+[36m(RLRunner pid=3159679)[39m starting episode 204 on metaAgent 30
+training
+[36m(RLRunner pid=3159662)[39m starting episode 205 on metaAgent 13
+training
+[36m(RLRunner pid=3159671)[39m starting episode 206 on metaAgent 22
+training
+[36m(RLRunner pid=3159676)[39m starting episode 207 on metaAgent 27
+training
+[36m(RLRunner pid=3159661)[39m starting episode 208 on metaAgent 12
+[Episode 208] Elapsed training time: 0:15:08
+update target q net
+training
+[36m(RLRunner pid=3159678)[39m starting episode 209 on metaAgent 29
+training
+[36m(RLRunner pid=3159660)[39m starting episode 210 on metaAgent 11
+training
+[36m(RLRunner pid=3159667)[39m starting episode 211 on metaAgent 18
+training
+[36m(RLRunner pid=3159680)[39m starting episode 212 on metaAgent 31
+training
+[36m(RLRunner pid=3159679)[39m starting episode 213 on metaAgent 30
+training
+[36m(RLRunner pid=3159662)[39m starting episode 214 on metaAgent 13
+training
+[36m(RLRunner pid=3159651)[39m starting episode 215 on metaAgent 2
+training
+[36m(RLRunner pid=3159674)[39m starting episode 216 on metaAgent 25
+update target q net
+training
+[36m(RLRunner pid=3159659)[39m starting episode 217 on metaAgent 10
+training
+[36m(RLRunner pid=3159650)[39m starting episode 218 on metaAgent 1
+training
+[36m(RLRunner pid=3159649)[39m starting episode 219 on metaAgent 0
+training
+[36m(RLRunner pid=3159659)[39m starting episode 220 on metaAgent 10
+training
+[36m(RLRunner pid=3159658)[39m starting episode 221 on metaAgent 9
+training
+[36m(RLRunner pid=3159658)[39m starting episode 222 on metaAgent 9
+training
+[36m(RLRunner pid=3159672)[39m starting episode 223 on metaAgent 23
+training
+[36m(RLRunner pid=3159656)[39m starting episode 224 on metaAgent 7
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159671)[39m starting episode 225 on metaAgent 22
+training
+[36m(RLRunner pid=3159649)[39m starting episode 226 on metaAgent 0
+training
+[36m(RLRunner pid=3159666)[39m starting episode 227 on metaAgent 17
+training
+[36m(RLRunner pid=3159677)[39m starting episode 228 on metaAgent 28
+training
+[36m(RLRunner pid=3159655)[39m starting episode 229 on metaAgent 6
+training
+[36m(RLRunner pid=3159679)[39m starting episode 230 on metaAgent 30
+training
+[36m(RLRunner pid=3159655)[39m starting episode 231 on metaAgent 6
+training
+[36m(RLRunner pid=3159671)[39m starting episode 232 on metaAgent 22
+update target q net
+training
+[36m(RLRunner pid=3159653)[39m starting episode 233 on metaAgent 4
+training
+[36m(RLRunner pid=3159667)[39m starting episode 234 on metaAgent 18
+training
+[36m(RLRunner pid=3159664)[39m starting episode 235 on metaAgent 15
+training
+[36m(RLRunner pid=3159650)[39m starting episode 236 on metaAgent 1
+training
+[36m(RLRunner pid=3159667)[39m starting episode 237 on metaAgent 18
+training
+[36m(RLRunner pid=3159654)[39m starting episode 238 on metaAgent 5
+training
+[36m(RLRunner pid=3159669)[39m starting episode 239 on metaAgent 20
+training
+[36m(RLRunner pid=3159665)[39m starting episode 240 on metaAgent 16
+[Episode 240] Elapsed training time: 0:17:53
+update target q net
+training
+[36m(RLRunner pid=3159660)[39m starting episode 241 on metaAgent 11
+training
+[36m(RLRunner pid=3159670)[39m starting episode 242 on metaAgent 21
+training
+[36m(RLRunner pid=3159659)[39m starting episode 243 on metaAgent 10
+training
+[36m(RLRunner pid=3159655)[39m starting episode 244 on metaAgent 6
+training
+[36m(RLRunner pid=3159667)[39m starting episode 245 on metaAgent 18
+training
+[36m(RLRunner pid=3159660)[39m starting episode 246 on metaAgent 11
+training
+[36m(RLRunner pid=3159652)[39m starting episode 247 on metaAgent 3
+training
+[36m(RLRunner pid=3159667)[39m starting episode 248 on metaAgent 18
+update target q net
+training
+[36m(RLRunner pid=3159671)[39m starting episode 249 on metaAgent 22
+training
+[36m(RLRunner pid=3159667)[39m starting episode 250 on metaAgent 18
+training
+[36m(RLRunner pid=3159670)[39m starting episode 251 on metaAgent 21
+training
+[36m(RLRunner pid=3159656)[39m starting episode 252 on metaAgent 7
+training
+[36m(RLRunner pid=3159658)[39m starting episode 253 on metaAgent 9
+training
+[36m(RLRunner pid=3159650)[39m starting episode 254 on metaAgent 1
+training
+[36m(RLRunner pid=3159671)[39m starting episode 255 on metaAgent 22
+training
+[36m(RLRunner pid=3159665)[39m starting episode 256 on metaAgent 16
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159655)[39m starting episode 257 on metaAgent 6
+training
+[36m(RLRunner pid=3159660)[39m starting episode 258 on metaAgent 11
+training
+[36m(RLRunner pid=3159671)[39m starting episode 259 on metaAgent 22
+training
+[36m(RLRunner pid=3159660)[39m starting episode 260 on metaAgent 11
+training
+[36m(RLRunner pid=3159665)[39m starting episode 261 on metaAgent 16
+training
+[36m(RLRunner pid=3159660)[39m starting episode 262 on metaAgent 11
+training
+[36m(RLRunner pid=3159674)[39m starting episode 263 on metaAgent 25
+training
+[36m(RLRunner pid=3159667)[39m starting episode 264 on metaAgent 18
+update target q net
+training
+[36m(RLRunner pid=3159678)[39m starting episode 265 on metaAgent 29
+training
+[36m(RLRunner pid=3159675)[39m starting episode 266 on metaAgent 26
+training
+[36m(RLRunner pid=3159660)[39m starting episode 267 on metaAgent 11
+training
+[36m(RLRunner pid=3159671)[39m starting episode 268 on metaAgent 22
+training
+[36m(RLRunner pid=3159662)[39m starting episode 269 on metaAgent 13
+training
+[36m(RLRunner pid=3159673)[39m starting episode 270 on metaAgent 24
+training
+[36m(RLRunner pid=3159660)[39m starting episode 271 on metaAgent 11
+training
+[36m(RLRunner pid=3159664)[39m starting episode 272 on metaAgent 15
+[Episode 272] Elapsed training time: 0:20:38
+update target q net
+training
+[36m(RLRunner pid=3159660)[39m starting episode 273 on metaAgent 11
+training
+[36m(RLRunner pid=3159678)[39m starting episode 274 on metaAgent 29
+training
+[36m(RLRunner pid=3159660)[39m starting episode 275 on metaAgent 11
+training
+[36m(RLRunner pid=3159673)[39m starting episode 276 on metaAgent 24
+training
+[36m(RLRunner pid=3159675)[39m starting episode 277 on metaAgent 26
+training
+[36m(RLRunner pid=3159651)[39m starting episode 278 on metaAgent 2
+training
+[36m(RLRunner pid=3159651)[39m starting episode 279 on metaAgent 2
+training
+[36m(RLRunner pid=3159675)[39m starting episode 280 on metaAgent 26
+update target q net
+training
+[36m(RLRunner pid=3159667)[39m starting episode 281 on metaAgent 18
+training
+[36m(RLRunner pid=3159666)[39m starting episode 282 on metaAgent 17
+training
+[36m(RLRunner pid=3159678)[39m starting episode 283 on metaAgent 29
+training
+[36m(RLRunner pid=3159653)[39m starting episode 284 on metaAgent 4
+training
+[36m(RLRunner pid=3159661)[39m starting episode 285 on metaAgent 12
+training
+[36m(RLRunner pid=3159670)[39m starting episode 286 on metaAgent 21
+training
+[36m(RLRunner pid=3159678)[39m starting episode 287 on metaAgent 29
+training
+[36m(RLRunner pid=3159677)[39m starting episode 288 on metaAgent 28
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159660)[39m starting episode 289 on metaAgent 11
+training
+[36m(RLRunner pid=3159660)[39m starting episode 290 on metaAgent 11
+training
+[36m(RLRunner pid=3159670)[39m starting episode 291 on metaAgent 21
+training
+[36m(RLRunner pid=3159672)[39m starting episode 292 on metaAgent 23
+training
+[36m(RLRunner pid=3159673)[39m starting episode 293 on metaAgent 24
+training
+[36m(RLRunner pid=3159653)[39m starting episode 294 on metaAgent 4
+training
+[36m(RLRunner pid=3159672)[39m starting episode 295 on metaAgent 23
+training
+[36m(RLRunner pid=3159661)[39m starting episode 296 on metaAgent 12
+update target q net
+training
+[36m(RLRunner pid=3159663)[39m starting episode 297 on metaAgent 14
+training
+[36m(RLRunner pid=3159653)[39m starting episode 298 on metaAgent 4
+training
+[36m(RLRunner pid=3159658)[39m starting episode 299 on metaAgent 9
+training
+[36m(RLRunner pid=3159655)[39m starting episode 300 on metaAgent 6
+training
+[36m(RLRunner pid=3159649)[39m starting episode 301 on metaAgent 0
+[36m(RLRunner pid=3159655)[39m gif complete
+[36m(RLRunner pid=3159655)
+training
+[36m(RLRunner pid=3159671)[39m starting episode 302 on metaAgent 22
+training
+[36m(RLRunner pid=3159659)[39m starting episode 303 on metaAgent 10
+training
+[36m(RLRunner pid=3159675)[39m starting episode 304 on metaAgent 26
+[Episode 304] Elapsed training time: 0:23:23
+update target q net
+training
+[36m(RLRunner pid=3159663)[39m starting episode 305 on metaAgent 14
+training
+[36m(RLRunner pid=3159678)[39m starting episode 306 on metaAgent 29
+training
+[36m(RLRunner pid=3159671)[39m starting episode 307 on metaAgent 22
+training
+[36m(RLRunner pid=3159658)[39m starting episode 308 on metaAgent 9
+training
+[36m(RLRunner pid=3159670)[39m starting episode 309 on metaAgent 21
+training
+[36m(RLRunner pid=3159672)[39m starting episode 310 on metaAgent 23
+training
+[36m(RLRunner pid=3159649)[39m starting episode 311 on metaAgent 0
+training
+[36m(RLRunner pid=3159667)[39m starting episode 312 on metaAgent 18
+update target q net
+training
+[36m(RLRunner pid=3159653)[39m starting episode 313 on metaAgent 4
+training
+[36m(RLRunner pid=3159667)[39m starting episode 314 on metaAgent 18
+training
+[36m(RLRunner pid=3159653)[39m starting episode 315 on metaAgent 4
+training
+[36m(RLRunner pid=3159663)[39m starting episode 316 on metaAgent 14
+training
+[36m(RLRunner pid=3159660)[39m starting episode 317 on metaAgent 11
+training
+[36m(RLRunner pid=3159662)[39m starting episode 318 on metaAgent 13
+training
+[36m(RLRunner pid=3159659)[39m starting episode 319 on metaAgent 10
+training
+[36m(RLRunner pid=3159670)[39m starting episode 320 on metaAgent 21
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159663)[39m starting episode 321 on metaAgent 14
+training
+[36m(RLRunner pid=3159657)[39m starting episode 322 on metaAgent 8
+training
+[36m(RLRunner pid=3159670)[39m starting episode 323 on metaAgent 21
+training
+[36m(RLRunner pid=3159668)[39m starting episode 324 on metaAgent 19
+training
+[36m(RLRunner pid=3159669)[39m starting episode 325 on metaAgent 20
+training
+[36m(RLRunner pid=3159668)[39m starting episode 326 on metaAgent 19
+training
+[36m(RLRunner pid=3159651)[39m starting episode 327 on metaAgent 2
+training
+[36m(RLRunner pid=3159672)[39m starting episode 328 on metaAgent 23
+update target q net
+training
+[36m(RLRunner pid=3159678)[39m starting episode 329 on metaAgent 29
+training
+[36m(RLRunner pid=3159678)[39m starting episode 330 on metaAgent 29
+training
+[36m(RLRunner pid=3159656)[39m starting episode 331 on metaAgent 7
+training
+[36m(RLRunner pid=3159671)[39m starting episode 332 on metaAgent 22
+training
+[36m(RLRunner pid=3159678)[39m starting episode 333 on metaAgent 29
+training
+[36m(RLRunner pid=3159676)[39m starting episode 334 on metaAgent 27
+training
+[36m(RLRunner pid=3159656)[39m starting episode 335 on metaAgent 7
+training
+[36m(RLRunner pid=3159676)[39m starting episode 336 on metaAgent 27
+[Episode 336] Elapsed training time: 0:26:07
+update target q net
+training
+[36m(RLRunner pid=3159654)[39m starting episode 337 on metaAgent 5
+training
+[36m(RLRunner pid=3159659)[39m starting episode 338 on metaAgent 10
+training
+[36m(RLRunner pid=3159657)[39m starting episode 339 on metaAgent 8
+training
+[36m(RLRunner pid=3159666)[39m starting episode 340 on metaAgent 17
+training
+[36m(RLRunner pid=3159657)[39m starting episode 341 on metaAgent 8
+training
+[36m(RLRunner pid=3159664)[39m starting episode 342 on metaAgent 15
+training
+[36m(RLRunner pid=3159660)[39m starting episode 343 on metaAgent 11
+training
+[36m(RLRunner pid=3159666)[39m starting episode 344 on metaAgent 17
+update target q net
+training
+[36m(RLRunner pid=3159665)[39m starting episode 345 on metaAgent 16
+training
+[36m(RLRunner pid=3159659)[39m starting episode 346 on metaAgent 10
+training
+[36m(RLRunner pid=3159659)[39m starting episode 347 on metaAgent 10
+training
+[36m(RLRunner pid=3159655)[39m starting episode 348 on metaAgent 6
+training
+[36m(RLRunner pid=3159665)[39m starting episode 349 on metaAgent 16
+training
+[36m(RLRunner pid=3159660)[39m starting episode 350 on metaAgent 11
+training
+[36m(RLRunner pid=3159670)[39m starting episode 351 on metaAgent 21
+training
+[36m(RLRunner pid=3159670)[39m starting episode 352 on metaAgent 21
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159665)[39m starting episode 353 on metaAgent 16
+training
+[36m(RLRunner pid=3159657)[39m starting episode 354 on metaAgent 8
+training
+[36m(RLRunner pid=3159659)[39m starting episode 355 on metaAgent 10
+training
+[36m(RLRunner pid=3159672)[39m starting episode 356 on metaAgent 23
+training
+[36m(RLRunner pid=3159652)[39m starting episode 357 on metaAgent 3
+training
+[36m(RLRunner pid=3159674)[39m starting episode 358 on metaAgent 25
+training
+[36m(RLRunner pid=3159649)[39m starting episode 359 on metaAgent 0
+training
+[36m(RLRunner pid=3159672)[39m starting episode 360 on metaAgent 23
+update target q net
+training
+[36m(RLRunner pid=3159672)[39m starting episode 361 on metaAgent 23
+training
+[36m(RLRunner pid=3159677)[39m starting episode 362 on metaAgent 28
+training
+[36m(RLRunner pid=3159678)[39m starting episode 363 on metaAgent 29
+training
+[36m(RLRunner pid=3159659)[39m starting episode 364 on metaAgent 10
+training
+[36m(RLRunner pid=3159657)[39m starting episode 365 on metaAgent 8
+training
+[36m(RLRunner pid=3159652)[39m starting episode 366 on metaAgent 3
+training
+[36m(RLRunner pid=3159678)[39m starting episode 367 on metaAgent 29
+training
+[36m(RLRunner pid=3159649)[39m starting episode 368 on metaAgent 0
+[Episode 368] Elapsed training time: 0:28:52
+update target q net
+training
+[36m(RLRunner pid=3159677)[39m starting episode 369 on metaAgent 28
+training
+[36m(RLRunner pid=3159678)[39m starting episode 370 on metaAgent 29
+training
+[36m(RLRunner pid=3159676)[39m starting episode 371 on metaAgent 27
+training
+[36m(RLRunner pid=3159680)[39m starting episode 372 on metaAgent 31
+training
+[36m(RLRunner pid=3159675)[39m starting episode 373 on metaAgent 26
+training
+[36m(RLRunner pid=3159665)[39m starting episode 374 on metaAgent 16
+training
+[36m(RLRunner pid=3159656)[39m starting episode 375 on metaAgent 7
+training
+[36m(RLRunner pid=3159655)[39m starting episode 376 on metaAgent 6
+update target q net
+training
+[36m(RLRunner pid=3159655)[39m starting episode 377 on metaAgent 6
+training
+[36m(RLRunner pid=3159664)[39m starting episode 378 on metaAgent 15
+training
+[36m(RLRunner pid=3159680)[39m starting episode 379 on metaAgent 31
+training
+[36m(RLRunner pid=3159664)[39m starting episode 380 on metaAgent 15
+training
+[36m(RLRunner pid=3159653)[39m starting episode 381 on metaAgent 4
+training
+[36m(RLRunner pid=3159679)[39m starting episode 382 on metaAgent 30
+training
+[36m(RLRunner pid=3159652)[39m starting episode 383 on metaAgent 3
+training
+[36m(RLRunner pid=3159650)[39m starting episode 384 on metaAgent 1
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159665)[39m starting episode 385 on metaAgent 16
+training
+[36m(RLRunner pid=3159658)[39m starting episode 386 on metaAgent 9
+training
+[36m(RLRunner pid=3159655)[39m starting episode 387 on metaAgent 6
+training
+[36m(RLRunner pid=3159662)[39m starting episode 388 on metaAgent 13
+training
+[36m(RLRunner pid=3159675)[39m starting episode 389 on metaAgent 26
+training
+[36m(RLRunner pid=3159674)[39m starting episode 390 on metaAgent 25
+training
+[36m(RLRunner pid=3159661)[39m starting episode 391 on metaAgent 12
+training
+[36m(RLRunner pid=3159672)[39m starting episode 392 on metaAgent 23
+update target q net
+training
+[36m(RLRunner pid=3159665)[39m starting episode 393 on metaAgent 16
+training
+[36m(RLRunner pid=3159676)[39m starting episode 394 on metaAgent 27
+training
+[36m(RLRunner pid=3159670)[39m starting episode 395 on metaAgent 21
+training
+[36m(RLRunner pid=3159650)[39m starting episode 396 on metaAgent 1
+training
+[36m(RLRunner pid=3159656)[39m starting episode 397 on metaAgent 7
+training
+[36m(RLRunner pid=3159675)[39m starting episode 398 on metaAgent 26
+training
+[36m(RLRunner pid=3159675)[39m starting episode 399 on metaAgent 26
+training
+[36m(RLRunner pid=3159675)[39m starting episode 400 on metaAgent 26
+[Episode 400] Elapsed training time: 0:31:36
+update target q net
+training
+[36m(RLRunner pid=3159649)[39m starting episode 401 on metaAgent 0
+[36m(RLRunner pid=3159675)[39m gif complete
+[36m(RLRunner pid=3159675)
+training
+[36m(RLRunner pid=3159656)[39m starting episode 402 on metaAgent 7
+training
+[36m(RLRunner pid=3159673)[39m starting episode 403 on metaAgent 24
+training
+[36m(RLRunner pid=3159672)[39m starting episode 404 on metaAgent 23
+training
+[36m(RLRunner pid=3159654)[39m starting episode 405 on metaAgent 5
+training
+[36m(RLRunner pid=3159652)[39m starting episode 406 on metaAgent 3
+training
+[36m(RLRunner pid=3159673)[39m starting episode 407 on metaAgent 24
+training
+[36m(RLRunner pid=3159654)[39m starting episode 408 on metaAgent 5
+update target q net
+training
+[36m(RLRunner pid=3159673)[39m starting episode 409 on metaAgent 24
+training
+[36m(RLRunner pid=3159660)[39m starting episode 410 on metaAgent 11
+training
+[36m(RLRunner pid=3159660)[39m starting episode 411 on metaAgent 11
+training
+[36m(RLRunner pid=3159676)[39m starting episode 412 on metaAgent 27
+training
+[36m(RLRunner pid=3159672)[39m starting episode 413 on metaAgent 23
+training
+[36m(RLRunner pid=3159672)[39m starting episode 414 on metaAgent 23
+training
+[36m(RLRunner pid=3159673)[39m starting episode 415 on metaAgent 24
+training
+[36m(RLRunner pid=3159665)[39m starting episode 416 on metaAgent 16
+update target q net
+Saving model
+Saved model to model/ae_clean/run_20260518_205455__elapsed_running/checkpoint.pth
+training
+[36m(RLRunner pid=3159675)[39m starting episode 417 on metaAgent 26
+training
+[36m(RLRunner pid=3159668)[39m starting episode 418 on metaAgent 19
+training
+[36m(RLRunner pid=3159675)[39m starting episode 419 on metaAgent 26
+training
+[36m(RLRunner pid=3159665)[39m starting episode 420 on metaAgent 16
+training
+[36m(RLRunner pid=3159649)[39m starting episode 421 on metaAgent 0
+training
+[36m(RLRunner pid=3159665)[39m starting episode 422 on metaAgent 16
+training
+[36m(RLRunner pid=3159668)[39m starting episode 423 on metaAgent 19
+training
+[36m(RLRunner pid=3159680)[39m starting episode 424 on metaAgent 31
+update target q net
+training
+[36m(RLRunner pid=3159679)[39m starting episode 425 on metaAgent 30
+training
+[36m(RLRunner pid=3159660)[39m starting episode 426 on metaAgent 11
+training
+[36m(RLRunner pid=3159670)[39m starting episode 427 on metaAgent 21
+training
+[36m(RLRunner pid=3159673)[39m starting episode 428 on metaAgent 24
+training
+[36m(RLRunner pid=3159656)[39m starting episode 429 on metaAgent 7
+training
+[36m(RLRunner pid=3159656)[39m starting episode 430 on metaAgent 7
+training
+[36m(RLRunner pid=3159651)[39m starting episode 431 on metaAgent 2
+training
+[36m(RLRunner pid=3159657)[39m starting episode 432 on metaAgent 8
+[Episode 432] Elapsed training time: 0:34:21
+update target q net
+training
+[36m(RLRunner pid=3159657)[39m starting episode 433 on metaAgent 8
+training
+[36m(RLRunner pid=3159651)[39m starting episode 434 on metaAgent 2
+training
+[36m(RLRunner pid=3159660)[39m starting episode 435 on metaAgent 11
+training
+[36m(RLRunner pid=3159657)[39m starting episode 436 on metaAgent 8
+training
+[36m(RLRunner pid=3159662)[39m starting episode 437 on metaAgent 13
+CTRL_C pressed. Killing remote workers
+Final checkpoint directory: model/ae_clean/run_20260518_205455__elapsed_00h34m44s

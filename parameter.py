@@ -20,3 +20,7 @@ train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
 LOAD_MODEL = False  # do you want to load the model trained before
 SAVE_IMG_GAP = 100
+USE_WANDB = True  # do you want to log training metrics to Weights & Biases
+WANDB_PROJECT = 'ARiADNE'
+WANDB_ENTITY = None
+WANDB_MODE = 'online'  # use 'offline' when training without network access
