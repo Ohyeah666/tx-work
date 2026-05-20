@@ -11,15 +11,18 @@ from test_parameter import *
 
 
 class TestWorker:
-    def __init__(self, meta_agent_id, policy_net, global_step, device='cuda', greedy=False, save_image=False):
+    def __init__(self, meta_agent_id, policy_net, global_step, device='cuda', greedy=False, save_image=False,
+                 gifs_dir=None, test_set_name=TEST_SET_NAME):
         self.device = device
         self.greedy = greedy
         self.metaAgentID = meta_agent_id
         self.global_step = global_step
         self.k_size = K_SIZE
         self.save_image = save_image
+        self.gifs_path = gifs_dir or gifs_path
 
-        self.env = Env(map_index=self.global_step, k_size=self.k_size, plot=save_image, test=True)
+        self.env = Env(map_index=self.global_step, k_size=self.k_size, plot=save_image, test=True,
+                       test_set_name=test_set_name)
         self.local_policy_net = policy_net
         self.travel_dist = 0
         self.robot_position = self.env.start_position
@@ -53,9 +56,8 @@ class TestWorker:
 
             # save a frame
             if self.save_image:
-                if not os.path.exists(gifs_path):
-                    os.makedirs(gifs_path)
-                self.env.plot_env(self.global_step, gifs_path, i, self.travel_dist)
+                os.makedirs(self.gifs_path, exist_ok=True)
+                self.env.plot_env(self.global_step, self.gifs_path, i, self.travel_dist)
 
             if done:
                 break
@@ -80,8 +82,7 @@ class TestWorker:
 
         # save gif
         if self.save_image:
-            path = gifs_path
-            self.make_gif(path, curr_episode)
+            self.make_gif(self.gifs_path, curr_episode)
 
     def get_observations(self):
         # get observations

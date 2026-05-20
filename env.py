@@ -9,11 +9,11 @@ from node import *
 
 
 class Env():
-    def __init__(self, map_index, k_size=20, plot=False, test=False):
+    def __init__(self, map_index, k_size=20, plot=False, test=False, test_set_name='easy'):
         # import environment ground truth from dungeon files
         self.test = test
         if self.test:
-            self.map_dir = f'DungeonMaps/complex'  # change to 'complex', 'medium', and 'easy'
+            self.map_dir = os.path.join('DungeonMaps', test_set_name)
         else:
             self.map_dir = f'DungeonMaps/train'
         self.map_list = os.listdir(self.map_dir)
@@ -214,7 +214,7 @@ class Env():
         # plt.pause(0.1)
         plt.suptitle('Explored ratio: {:.4g}  Travel distance: {:.4g}'.format(self.explored_rate, travel_dist))
         plt.tight_layout()
-        plt.savefig('{}/{}_{}_samples.png'.format(path, n, step, dpi=150))
+        plt.savefig('{}/{}_{}_samples.png'.format(path, n, step), dpi=150)
         # plt.show()
         frame = '{}/{}_{}_samples.png'.format(path, n, step)
         self.frame_files.append(frame)
