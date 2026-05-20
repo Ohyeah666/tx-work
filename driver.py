@@ -379,7 +379,10 @@ def main():
                 global_target_q_net2.eval()
 
             # save the model
-            if curr_episode % 32 == 0:
+            should_save_checkpoint = curr_episode % 32 == 0
+            should_archive_checkpoint = (curr_episode >= ARCHIVE_CHECKPOINT_START_EPISODE and
+                                         curr_episode % ARCHIVE_CHECKPOINT_GAP == 0)
+            if should_save_checkpoint or should_archive_checkpoint:
                 print('Saving model', end='\n')
                 checkpoint = {"policy_model": global_policy_net.state_dict(),
                                 "q_net1_model": global_q_net1.state_dict(),
@@ -395,9 +398,16 @@ def main():
                                 "q_net2_lr_decay": q_net2_lr_decay.state_dict(),
                                 "log_alpha_lr_decay": log_alpha_lr_decay.state_dict()
                         }
-                path_checkpoint = os.path.join(model_run_dir, 'checkpoint.pth')
-                torch.save(checkpoint, path_checkpoint)
-                print(f'Saved model to {path_checkpoint}', end='\n')
+
+                if should_save_checkpoint:
+                    path_checkpoint = os.path.join(model_run_dir, 'checkpoint.pth')
+                    torch.save(checkpoint, path_checkpoint)
+                    print(f'Saved model to {path_checkpoint}', end='\n')
+
+                if should_archive_checkpoint:
+                    archive_checkpoint = os.path.join(model_run_dir, f'checkpoint_episode_{curr_episode}.pth')
+                    torch.save(checkpoint, archive_checkpoint)
+                    print(f'Saved archive checkpoint to {archive_checkpoint}', end='\n')
                     
     
     except KeyboardInterrupt:
