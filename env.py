@@ -36,7 +36,7 @@ class Env():
         # initialize graph generator
         self.graph_generator = Graph_generator(map_size=self.ground_truth_size, sensor_range=self.sensor_range, k_size=k_size, plot=plot)
         self.graph_generator.route_node.append(self.start_position)
-        self.node_coords, self.graph, self.node_utility, self.guidepost = None, None, None, None
+        self.node_coords, self.graph, self.node_utility, self.guidepost, self.visit_count = None, None, None, None, None
         self.frontiers = None
 
         self.begin()
@@ -63,7 +63,7 @@ class Env():
         self.frontiers = self.find_frontier()
         self.old_robot_belief = copy.deepcopy(self.robot_belief)
 
-        self.node_coords, self.graph, self.node_utility, self.guidepost = self.graph_generator.generate_graph(
+        self.node_coords, self.graph, self.node_utility, self.guidepost, self.visit_count = self.graph_generator.generate_graph(
             self.start_position, self.robot_belief, self.frontiers)
 
     def step(self, robot_position, next_position, travel_dist):
@@ -91,7 +91,7 @@ class Env():
             self.yPoints.append(robot_position[1])
 
         # update the graph
-        self.node_coords, self.graph, self.node_utility, self.guidepost = self.graph_generator.update_graph(
+        self.node_coords, self.graph, self.node_utility, self.guidepost, self.visit_count = self.graph_generator.update_graph(
             robot_position, self.robot_belief, self.old_robot_belief, frontiers, self.frontiers)
         self.old_robot_belief = copy.deepcopy(self.robot_belief)
 

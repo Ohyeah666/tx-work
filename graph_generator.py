@@ -1,12 +1,16 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import copy
+import heapq
 
 from node import Node
 from graph import Graph, a_star
 
 
 class Graph_generator:
+    GRAPH_DISTANCE_NORMALIZER = 640
+    UNREACHABLE_GRAPH_DISTANCE = 2.0
+
     def __init__(self, map_size, k_size, sensor_range, plot=False):
         self.k_size = k_size
         self.graph = Graph()
@@ -22,6 +26,7 @@ class Graph_generator:
         self.nodes_list = []
         self.node_utility = None
         self.guidepost = None
+        self.visit_count = None
 
     def edge_clear_all_nodes(self):
         self.graph = Graph()
@@ -57,14 +62,9 @@ class Graph_generator:
             self.node_utility.append(utility)
         self.node_utility = np.array(self.node_utility)
 
-        # guidepost is a binary sign to indicate weather one node has been visited
-        self.guidepost = np.zeros((self.node_coords.shape[0], 1))
-        x = self.node_coords[:,0] + self.node_coords[:,1]*1j
-        for node in self.route_node:
-            index = np.argwhere(x.reshape(-1) == node[0]+node[1]*1j)[0]
-            self.guidepost[index] = 1
+        self.update_visit_info()
 
-        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost
+        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count
 
     def update_graph(self, robot_position, robot_belief, old_robot_belief, frontiers, old_frontiers):
         # add uniform points in the new free area to the node coords
@@ -116,13 +116,63 @@ class Graph_generator:
             self.node_utility.append(utility)
         self.node_utility = np.array(self.node_utility)
 
-        self.guidepost = np.zeros((self.node_coords.shape[0], 1))
-        x = self.node_coords[:, 0] + self.node_coords[:, 1] * 1j
-        for node in self.route_node:
-            index = np.argwhere(x.reshape(-1) == node[0] + node[1] * 1j)
-            self.guidepost[index] = 1
+        self.update_visit_info()
 
-        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost
+        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count
+
+    def coords_to_key(self, coords):
+        return int(round(coords[0])), int(round(coords[1]))
+
+    def update_visit_info(self):
+        # route_node records the episode-local visit history, including repeated revisits.
+        self.guidepost = np.zeros((self.node_coords.shape[0], 1))
+        self.visit_count = np.zeros((self.node_coords.shape[0], 1))
+        coord_to_index = {self.coords_to_key(coords): i for i, coords in enumerate(self.node_coords)}
+
+        for node in self.route_node:
+            index = coord_to_index.get(self.coords_to_key(node))
+            if index is None:
+                continue
+            self.guidepost[index] = 1
+            self.visit_count[index] += 1
+
+    def get_normalized_shortest_path_distances(self, start_index):
+        n_nodes = self.node_coords.shape[0]
+        distances = np.full(n_nodes, np.inf)
+        distances[start_index] = 0
+
+        adjacency = [[] for _ in range(n_nodes)]
+        for from_node, edges in self.graph.edges.items():
+            from_index = int(from_node)
+            if from_index >= n_nodes:
+                continue
+
+            for edge in edges.values():
+                to_index = int(edge.to_node)
+                if to_index >= n_nodes:
+                    continue
+
+                length = float(edge.length)
+                adjacency[from_index].append((to_index, length))
+                adjacency[to_index].append((from_index, length))
+
+        open_list = [(0, start_index)]
+        while open_list:
+            current_dist, current_index = heapq.heappop(open_list)
+            if current_dist > distances[current_index]:
+                continue
+
+            for next_index, edge_length in adjacency[current_index]:
+                next_dist = current_dist + edge_length
+                if next_dist < distances[next_index]:
+                    distances[next_index] = next_dist
+                    heapq.heappush(open_list, (next_dist, next_index))
+
+        reachable = np.isfinite(distances)
+        normalized_distances = distances / self.GRAPH_DISTANCE_NORMALIZER
+        normalized_distances[~reachable] = self.UNREACHABLE_GRAPH_DISTANCE
+
+        return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1)
 
     def generate_uniform_points(self):
         x = np.linspace(0, self.map_x - 1, 30).round().astype(int)
@@ -230,6 +280,5 @@ class Graph_generator:
             assert route != []
         route = list(map(str, route))
         return dist, route
-
 
 

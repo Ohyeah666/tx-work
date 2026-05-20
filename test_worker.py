@@ -90,6 +90,12 @@ class TestWorker:
         graph = copy.deepcopy(self.env.graph)
         node_utility = copy.deepcopy(self.env.node_utility)
         guidepost = copy.deepcopy(self.env.guidepost)
+        visit_count = copy.deepcopy(self.env.visit_count)
+
+        # get the node index of the current robot position
+        current_node_index = self.env.find_index_from_coords(self.robot_position)
+        graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
+            current_node_index)
 
         # normalize observations
         node_coords = node_coords / 640
@@ -98,14 +104,25 @@ class TestWorker:
         # transfer to node inputs tensor
         n_nodes = node_coords.shape[0]
         node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        node_inputs = np.concatenate((node_coords, node_utility_inputs, guidepost), axis=1)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size+1, 3)
+        visit_count_inputs = visit_count.reshape((n_nodes, 1))
+        utility_over_dist = np.zeros_like(node_utility_inputs)
+        np.divide(
+            node_utility_inputs,
+            graph_dist_to_current + 1e-6,
+            out=utility_over_dist,
+            where=reachable_nodes,
+        )
+        utility_over_dist[current_node_index] = 0
+        node_inputs = np.concatenate(
+            (node_coords, node_utility_inputs, guidepost, graph_dist_to_current, utility_over_dist,
+             visit_count_inputs),
+            axis=1)
+        node_inputs = np.nan_to_num(node_inputs, nan=0, posinf=0, neginf=0)
+        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_size, 7)
 
         # calculate a mask for padded node
         node_padding_mask = None
 
-        # get the node index of the current robot position
-        current_node_index = self.env.find_index_from_coords(self.robot_position)
         current_index = torch.tensor([current_node_index]).unsqueeze(0).unsqueeze(0).to(self.device)  # (1,1,1)
 
         # prepare the adjacent list as padded edge inputs and the adjacent matrix as the edge mask
