@@ -1,0 +1,61 @@
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environments and machine-specific config
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+ENV/
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# Editor, OS, and local assistant state
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.agents/
+.codex/
+.claude/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Training runs, experiment logs, and generated outputs
+train/
+wandb/
+runs/
+logs/
+results/
+gifs/
+
+# Model checkpoints and exported weights
+model/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# TensorBoard event files
+events.out.tfevents.*
+
+# Local/generated map datasets
+DungeonMaps/
