@@ -1,0 +1,60 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Local editor and agent metadata
+.DS_Store
+.idea/
+.vscode/
+.agents/
+.codex/
+.claude/
+
+# Training, evaluation, and visualization artifacts
+gifs/
+model/
+train/
+results/
+wandb/
+runs/
+lightning_logs/
+
+# Model checkpoints and experiment outputs
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.npz
+*.npy
+*.pkl
+*.pickle
+*.zarr/
+events.out.tfevents.*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Dataset note:
+# DungeonMaps/ is intentionally not ignored because it is already tracked and
+# the current code expects it locally. Uncomment the next line only if maps are
+# managed outside git in your workflow.
+# DungeonMaps/

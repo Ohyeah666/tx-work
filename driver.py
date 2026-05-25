@@ -39,6 +39,8 @@ TENSORBOARD_METRIC_TAGS = [
     'Perf/Travel Distance',
     'Perf/Success Rate',
     'Perf/Explored Rate',
+    'Features/Selected Expected Unknown Gain',
+    'Features/Selected Frontier Cluster Size',
 ]
 
 
@@ -214,7 +216,13 @@ def main():
         job_list.append(meta_agent.job.remote(weights_set, curr_episode))
     
     # initialize metric collector
-    metric_name = ['travel_dist', 'success_rate', 'explored_rate']
+    metric_name = [
+        'travel_dist',
+        'success_rate',
+        'explored_rate',
+        'selected_expected_unknown_gain',
+        'selected_frontier_cluster_size',
+    ]
     training_data = []
     perf_metrics = {}
     for n in metric_name:

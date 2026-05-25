@@ -1,7 +1,7 @@
 REPLAY_SIZE = 10000
 MINIMUM_BUFFER_SIZE = 2000
 BATCH_SIZE = 128
-INPUT_DIM = 7
+INPUT_DIM = 9
 EMBEDDING_DIM = 128
 NODE_PADDING_SIZE = 360  # the number of nodes will be padded to this value
 K_SIZE = 20  # the number of neighboring nodes

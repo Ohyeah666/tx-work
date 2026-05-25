@@ -5,6 +5,7 @@ import imageio
 import numpy as np
 import torch
 from env import Env
+from observation_features import build_node_inputs
 from parameter import *
 
 
@@ -28,6 +29,8 @@ class Worker:
 
         self.episode_buffer = []
         self.perf_metrics = dict()
+        self.selected_expected_unknown_gain = []
+        self.selected_frontier_cluster_size = []
         for i in range(15):
             self.episode_buffer.append([])
 
@@ -38,34 +41,28 @@ class Worker:
         node_utility = copy.deepcopy(self.env.node_utility)
         guidepost = copy.deepcopy(self.env.guidepost)
         visit_count = copy.deepcopy(self.env.visit_count)
+        expected_unknown_gain = copy.deepcopy(self.env.node_expected_unknown_gain)
+        frontier_cluster_size = copy.deepcopy(self.env.node_frontier_cluster_size)
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
         graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
             current_node_index)
 
-        # normalize observations
-        node_coords = node_coords / 640
-        node_utility = node_utility / 50
-
         # transfer to node inputs tensor
         n_nodes = node_coords.shape[0]
-        node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        visit_count_inputs = visit_count.reshape((n_nodes, 1))
-        utility_over_dist = np.zeros_like(node_utility_inputs)
-        np.divide(
-            node_utility_inputs,
-            graph_dist_to_current + 1e-6,
-            out=utility_over_dist,
-            where=reachable_nodes,
+        node_inputs = build_node_inputs(
+            node_coords,
+            node_utility,
+            guidepost,
+            graph_dist_to_current,
+            reachable_nodes,
+            visit_count,
+            expected_unknown_gain,
+            frontier_cluster_size,
+            current_node_index,
         )
-        utility_over_dist[current_node_index] = 0
-        node_inputs = np.concatenate(
-            (node_coords, node_utility_inputs, guidepost, graph_dist_to_current, utility_over_dist,
-             visit_count_inputs),
-            axis=1)
-        node_inputs = np.nan_to_num(node_inputs, nan=0, posinf=0, neginf=0)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size+1, 7)
+        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size, 9)
 
         # padding the number of node to a given node padding size
         assert node_coords.shape[0] < self.node_padding_size
@@ -123,6 +120,8 @@ class Worker:
 
         next_node_index = edge_inputs[0, 0, action_index.item()]
         next_position = self.env.node_coords[next_node_index]
+        self.selected_expected_unknown_gain.append(node_inputs[0, next_node_index, -2].item())
+        self.selected_frontier_cluster_size.append(node_inputs[0, next_node_index, -1].item())
 
         return next_position, action_index
 
@@ -179,6 +178,10 @@ class Worker:
         self.perf_metrics['travel_dist'] = self.travel_dist
         self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        self.perf_metrics['selected_expected_unknown_gain'] = float(np.mean(self.selected_expected_unknown_gain)) \
+            if self.selected_expected_unknown_gain else 0.0
+        self.perf_metrics['selected_frontier_cluster_size'] = float(np.mean(self.selected_frontier_cluster_size)) \
+            if self.selected_frontier_cluster_size else 0.0
 
         # save gif
         if self.save_image:
@@ -207,4 +210,3 @@ class Worker:
         # Remove files
         for filename in self.env.frame_files[:-1]:
             os.remove(filename)
-

@@ -5,13 +5,20 @@ import heapq
 
 from node import Node
 from graph import Graph, a_star
+from feature_extractor import (
+    compute_expected_unknown_gain_for_nodes,
+    compute_frontier_cluster_lookup,
+    compute_frontier_cluster_size_for_nodes,
+    normalize_expected_unknown_gain,
+    normalize_frontier_cluster_size,
+)
 
 
 class Graph_generator:
     GRAPH_DISTANCE_NORMALIZER = 640
     UNREACHABLE_GRAPH_DISTANCE = 2.0
 
-    def __init__(self, map_size, k_size, sensor_range, plot=False):
+    def __init__(self, map_size, k_size, sensor_range, frontier_resolution=4, plot=False):
         self.k_size = k_size
         self.graph = Graph()
         self.node_coords = None
@@ -22,11 +29,14 @@ class Graph_generator:
         self.map_y = map_size[0]
         self.uniform_points = self.generate_uniform_points()
         self.sensor_range = sensor_range
+        self.frontier_resolution = frontier_resolution
         self.route_node = []
         self.nodes_list = []
         self.node_utility = None
         self.guidepost = None
         self.visit_count = None
+        self.node_expected_unknown_gain = None
+        self.node_frontier_cluster_size = None
 
     def edge_clear_all_nodes(self):
         self.graph = Graph()
@@ -62,9 +72,11 @@ class Graph_generator:
             self.node_utility.append(utility)
         self.node_utility = np.array(self.node_utility)
 
+        self.update_semantic_features(robot_belief, frontiers)
         self.update_visit_info()
 
-        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count
+        return (self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count,
+                self.node_expected_unknown_gain, self.node_frontier_cluster_size)
 
     def update_graph(self, robot_position, robot_belief, old_robot_belief, frontiers, old_frontiers):
         # add uniform points in the new free area to the node coords
@@ -116,9 +128,11 @@ class Graph_generator:
             self.node_utility.append(utility)
         self.node_utility = np.array(self.node_utility)
 
+        self.update_semantic_features(robot_belief, frontiers)
         self.update_visit_info()
 
-        return self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count
+        return (self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count,
+                self.node_expected_unknown_gain, self.node_frontier_cluster_size)
 
     def coords_to_key(self, coords):
         return int(round(coords[0])), int(round(coords[1]))
@@ -135,6 +149,28 @@ class Graph_generator:
                 continue
             self.guidepost[index] = 1
             self.visit_count[index] += 1
+
+    def update_semantic_features(self, robot_belief, frontiers):
+        expected_unknown_gain = compute_expected_unknown_gain_for_nodes(
+            self.node_coords,
+            robot_belief,
+            self.sensor_range,
+        )
+        self.node_expected_unknown_gain = normalize_expected_unknown_gain(
+            expected_unknown_gain,
+            self.sensor_range,
+        )
+
+        frontier_cluster_lookup = compute_frontier_cluster_lookup(
+            frontiers,
+            resolution=self.frontier_resolution,
+            connectivity=8,
+        )
+        frontier_cluster_size = compute_frontier_cluster_size_for_nodes(
+            self.nodes_list,
+            frontier_cluster_lookup,
+        )
+        self.node_frontier_cluster_size = normalize_frontier_cluster_size(frontier_cluster_size, normalizer=50)
 
     def get_normalized_shortest_path_distances(self, start_index):
         n_nodes = self.node_coords.shape[0]
@@ -280,5 +316,4 @@ class Graph_generator:
             assert route != []
         route = list(map(str, route))
         return dist, route
-
 

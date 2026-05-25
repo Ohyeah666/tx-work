@@ -7,6 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 from env import Env
 from model import PolicyNet
+from observation_features import build_node_inputs
 from test_parameter import *
 
 
@@ -91,34 +92,27 @@ class TestWorker:
         node_utility = copy.deepcopy(self.env.node_utility)
         guidepost = copy.deepcopy(self.env.guidepost)
         visit_count = copy.deepcopy(self.env.visit_count)
+        expected_unknown_gain = copy.deepcopy(self.env.node_expected_unknown_gain)
+        frontier_cluster_size = copy.deepcopy(self.env.node_frontier_cluster_size)
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
         graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
             current_node_index)
 
-        # normalize observations
-        node_coords = node_coords / 640
-        node_utility = node_utility / 50
-
         # transfer to node inputs tensor
-        n_nodes = node_coords.shape[0]
-        node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        visit_count_inputs = visit_count.reshape((n_nodes, 1))
-        utility_over_dist = np.zeros_like(node_utility_inputs)
-        np.divide(
-            node_utility_inputs,
-            graph_dist_to_current + 1e-6,
-            out=utility_over_dist,
-            where=reachable_nodes,
+        node_inputs = build_node_inputs(
+            node_coords,
+            node_utility,
+            guidepost,
+            graph_dist_to_current,
+            reachable_nodes,
+            visit_count,
+            expected_unknown_gain,
+            frontier_cluster_size,
+            current_node_index,
         )
-        utility_over_dist[current_node_index] = 0
-        node_inputs = np.concatenate(
-            (node_coords, node_utility_inputs, guidepost, graph_dist_to_current, utility_over_dist,
-             visit_count_inputs),
-            axis=1)
-        node_inputs = np.nan_to_num(node_inputs, nan=0, posinf=0, neginf=0)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_size, 7)
+        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_size, 9)
 
         # calculate a mask for padded node
         node_padding_mask = None
