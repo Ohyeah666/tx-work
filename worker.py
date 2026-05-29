@@ -4,6 +4,7 @@ import os
 import imageio
 import numpy as np
 import torch
+from basin_features import build_basin_action_features
 from env import Env
 from observation_features import build_node_inputs
 from parameter import *
@@ -31,7 +32,12 @@ class Worker:
         self.perf_metrics = dict()
         self.selected_expected_unknown_gain = []
         self.selected_frontier_cluster_size = []
-        for i in range(15):
+        self.selected_basin_utility_sum = []
+        self.selected_basin_expected_unknown_gain_sum = []
+        self.selected_basin_frontier_cluster_max = []
+        self.selected_basin_unvisited_ratio = []
+        self.selected_basin_min_dist_to_utility = []
+        for i in range(17):
             self.episode_buffer.append([])
 
     def get_observations(self):
@@ -46,8 +52,8 @@ class Worker:
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
-        graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
-            current_node_index)
+        graph_dist_to_current, reachable_nodes, first_hop = self.env.graph_generator.get_normalized_shortest_path_distances(
+            current_node_index, return_first_hop=True)
 
         # transfer to node inputs tensor
         n_nodes = node_coords.shape[0]
@@ -93,25 +99,42 @@ class Worker:
             (0, self.node_padding_size - len(edge_inputs), 0, self.node_padding_size - len(edge_inputs)), 1)
         edge_mask = padding(edge_mask)
 
-        edge = edge_inputs[current_index]
+        edge = list(edge_inputs[current_node_index])
         while len(edge) < self.k_size:
             edge.append(0)
 
-        edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
+        edge_array = np.array(edge, dtype=int)
+        edge_inputs = torch.tensor(edge_array).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
 
         # calculate a mask for the padded edges (denoted by 0)
         edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
         one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
         edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
 
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
+        action_features = build_basin_action_features(
+            edge_array,
+            first_hop,
+            graph_dist_to_current,
+            node_utility,
+            visit_count,
+            expected_unknown_gain,
+            frontier_cluster_size,
+            current_node_index,
+            edge_padding_mask=edge_padding_mask.cpu().numpy().reshape(-1),
+            k_size=self.k_size,
+            utility_sum_normalizer=BASIN_UTILITY_SUM_NORMALIZER,
+            expected_unknown_gain_sum_normalizer=BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER,
+        )
+        action_features = torch.FloatTensor(action_features).unsqueeze(0).to(self.device)
+
+        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features = observations
         with torch.no_grad():
             logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask,
-                                              edge_padding_mask, edge_mask)
+                                              edge_padding_mask, edge_mask, action_features)
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()
@@ -122,33 +145,41 @@ class Worker:
         next_position = self.env.node_coords[next_node_index]
         self.selected_expected_unknown_gain.append(node_inputs[0, next_node_index, -2].item())
         self.selected_frontier_cluster_size.append(node_inputs[0, next_node_index, -1].item())
+        selected_action_features = action_features[0, action_index.item()]
+        self.selected_basin_utility_sum.append(selected_action_features[0].item())
+        self.selected_basin_expected_unknown_gain_sum.append(selected_action_features[1].item())
+        self.selected_basin_frontier_cluster_max.append(selected_action_features[2].item())
+        self.selected_basin_unvisited_ratio.append(selected_action_features[3].item())
+        self.selected_basin_min_dist_to_utility.append(selected_action_features[4].item())
 
         return next_position, action_index
 
     def save_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features = observations
         self.episode_buffer[0] += copy.deepcopy(node_inputs)
         self.episode_buffer[1] += copy.deepcopy(edge_inputs)
         self.episode_buffer[2] += copy.deepcopy(current_index)
         self.episode_buffer[3] += copy.deepcopy(node_padding_mask).bool()
         self.episode_buffer[4] += copy.deepcopy(edge_padding_mask).bool()
         self.episode_buffer[5] += copy.deepcopy(edge_mask).bool()
+        self.episode_buffer[6] += copy.deepcopy(action_features)
 
     def save_action(self, action_index):
-        self.episode_buffer[6] += action_index.unsqueeze(0).unsqueeze(0)
+        self.episode_buffer[7] += action_index.unsqueeze(0).unsqueeze(0)
 
     def save_reward_done(self, reward, done):
-        self.episode_buffer[7] += copy.deepcopy(torch.FloatTensor([[[reward]]]).to(self.device))
-        self.episode_buffer[8] += copy.deepcopy(torch.tensor([[[(int(done))]]]).to(self.device))
+        self.episode_buffer[8] += copy.deepcopy(torch.FloatTensor([[[reward]]]).to(self.device))
+        self.episode_buffer[9] += copy.deepcopy(torch.tensor([[[(int(done))]]]).to(self.device))
 
     def save_next_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
-        self.episode_buffer[9] += copy.deepcopy(node_inputs)
-        self.episode_buffer[10] += copy.deepcopy(edge_inputs)
-        self.episode_buffer[11] += copy.deepcopy(current_index)
-        self.episode_buffer[12] += copy.deepcopy(node_padding_mask).bool()
-        self.episode_buffer[13] += copy.deepcopy(edge_padding_mask).bool()
-        self.episode_buffer[14] += copy.deepcopy(edge_mask).bool()
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features = observations
+        self.episode_buffer[10] += copy.deepcopy(node_inputs)
+        self.episode_buffer[11] += copy.deepcopy(edge_inputs)
+        self.episode_buffer[12] += copy.deepcopy(current_index)
+        self.episode_buffer[13] += copy.deepcopy(node_padding_mask).bool()
+        self.episode_buffer[14] += copy.deepcopy(edge_padding_mask).bool()
+        self.episode_buffer[15] += copy.deepcopy(edge_mask).bool()
+        self.episode_buffer[16] += copy.deepcopy(action_features)
 
     def run_episode(self, curr_episode):
         done = False
@@ -182,6 +213,16 @@ class Worker:
             if self.selected_expected_unknown_gain else 0.0
         self.perf_metrics['selected_frontier_cluster_size'] = float(np.mean(self.selected_frontier_cluster_size)) \
             if self.selected_frontier_cluster_size else 0.0
+        self.perf_metrics['selected_basin_utility_sum'] = float(np.mean(self.selected_basin_utility_sum)) \
+            if self.selected_basin_utility_sum else 0.0
+        self.perf_metrics['selected_basin_expected_unknown_gain_sum'] = float(np.mean(self.selected_basin_expected_unknown_gain_sum)) \
+            if self.selected_basin_expected_unknown_gain_sum else 0.0
+        self.perf_metrics['selected_basin_frontier_cluster_max'] = float(np.mean(self.selected_basin_frontier_cluster_max)) \
+            if self.selected_basin_frontier_cluster_max else 0.0
+        self.perf_metrics['selected_basin_unvisited_ratio'] = float(np.mean(self.selected_basin_unvisited_ratio)) \
+            if self.selected_basin_unvisited_ratio else 0.0
+        self.perf_metrics['selected_basin_min_dist_to_utility'] = float(np.mean(self.selected_basin_min_dist_to_utility)) \
+            if self.selected_basin_min_dist_to_utility else 0.0
 
         # save gif
         if self.save_image:

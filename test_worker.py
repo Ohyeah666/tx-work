@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from basin_features import build_basin_action_features
 from env import Env
 from model import PolicyNet
 from observation_features import build_node_inputs
@@ -97,8 +98,8 @@ class TestWorker:
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
-        graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
-            current_node_index)
+        graph_dist_to_current, reachable_nodes, first_hop = self.env.graph_generator.get_normalized_shortest_path_distances(
+            current_node_index, return_first_hop=True)
 
         # transfer to node inputs tensor
         node_inputs = build_node_inputs(
@@ -129,23 +130,48 @@ class TestWorker:
         adjacent_matrix = self.calculate_edge_mask(edge_inputs)
         edge_mask = torch.from_numpy(adjacent_matrix).float().unsqueeze(0).to(self.device)
 
-        edge = edge_inputs[current_index]
+        edge = list(edge_inputs[current_node_index])
         while len(edge) < self.k_size:
             edge.append(0)
 
-        edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
+        edge_array = np.array(edge, dtype=int)
+        edge_inputs = torch.tensor(edge_array).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
 
         edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
         one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
         edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
 
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
+        action_features = build_basin_action_features(
+            edge_array,
+            first_hop,
+            graph_dist_to_current,
+            node_utility,
+            visit_count,
+            expected_unknown_gain,
+            frontier_cluster_size,
+            current_node_index,
+            edge_padding_mask=edge_padding_mask.cpu().numpy().reshape(-1),
+            k_size=self.k_size,
+            utility_sum_normalizer=BASIN_UTILITY_SUM_NORMALIZER,
+            expected_unknown_gain_sum_normalizer=BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER,
+        )
+        action_features = torch.FloatTensor(action_features).unsqueeze(0).to(self.device)
+
+        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features = observations
         with torch.no_grad():
-            logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask)
+            logp_list = self.local_policy_net(
+                node_inputs,
+                edge_inputs,
+                current_index,
+                node_padding_mask,
+                edge_padding_mask,
+                edge_mask,
+                action_features,
+            )
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()

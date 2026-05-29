@@ -24,7 +24,7 @@ class SingleHeadAttention(nn.Module):
             stdv = 1. / math.sqrt(param.size(-1))
             param.data.uniform_(-stdv, stdv)
 
-    def forward(self, q, k, mask=None):
+    def forward(self, q, k, mask=None, return_logits=False):
 
         n_batch, n_key, n_dim = k.size()
         n_query = q.size(1)
@@ -43,6 +43,8 @@ class SingleHeadAttention(nn.Module):
 
         if mask is not None:
             U = U.masked_fill(mask == 1, -1e8)
+        if return_logits:
+            return U
         attention = torch.log_softmax(U, dim=-1)  # n_batch*n_query*n_key
 
         return attention
@@ -204,14 +206,23 @@ class Decoder(nn.Module):
 
 
 class PolicyNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim):
+    def __init__(self, input_dim, embedding_dim, action_feature_dim=0):
         super(PolicyNet, self).__init__()
+        self.action_feature_dim = action_feature_dim
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.current_embedding = nn.Linear(embedding_dim * 2, embedding_dim)
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
         self.pointer = SingleHeadAttention(embedding_dim)
+        if self.action_feature_dim > 0:
+            self.action_bias = nn.Sequential(
+                nn.Linear(embedding_dim * 2 + self.action_feature_dim, embedding_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(embedding_dim, 1),
+            )
+        else:
+            self.action_bias = None
 
     def encode_graph(self, node_inputs, node_padding_mask, edge_mask):
         node_feature = self.initial_embedding(node_inputs)
@@ -219,39 +230,72 @@ class PolicyNet(nn.Module):
 
         return enhanced_node_feature
 
-    def output_policy(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask):
+    def output_policy(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask,
+                      action_features=None):
         current_edge = edge_inputs.permute(0, 2, 1)
         embedding_dim = enhanced_node_feature.size()[2]
+        k_size = edge_inputs.size()[2]
 
         neigboring_feature = torch.gather(enhanced_node_feature, 1, current_edge.repeat(1, 1, embedding_dim))
 
         current_node_feature = torch.gather(enhanced_node_feature, 1, current_index.repeat(1, 1, embedding_dim))
 
         if edge_padding_mask is not None:
-            current_mask = edge_padding_mask
+            current_mask = edge_padding_mask.clone()
             # print(current_mask)
         else:
-            current_mask = None
+            current_mask = torch.zeros((edge_inputs.size(0), 1, k_size), dtype=torch.int64, device=edge_inputs.device)
 
         current_mask[:,:,0] = 1 # don't stay at current position
         #assert 0 in current_mask
 
         enhanced_current_node_feature, _ = self.decoder(current_node_feature, enhanced_node_feature, node_padding_mask)
         enhanced_current_node_feature = self.current_embedding(torch.cat((enhanced_current_node_feature, current_node_feature), dim=-1))
-        logp = self.pointer(enhanced_current_node_feature, neigboring_feature, current_mask)
+        pointer_logits = self.pointer(enhanced_current_node_feature, neigboring_feature, current_mask, return_logits=True)
+
+        if self.action_bias is not None:
+            if action_features is None:
+                action_features = torch.zeros(
+                    (enhanced_node_feature.size(0), k_size, self.action_feature_dim),
+                    dtype=enhanced_node_feature.dtype,
+                    device=enhanced_node_feature.device,
+                )
+            action_features = action_features.to(dtype=enhanced_node_feature.dtype, device=enhanced_node_feature.device)
+            action_bias_inputs = torch.cat(
+                (
+                    enhanced_current_node_feature.repeat(1, k_size, 1),
+                    neigboring_feature,
+                    action_features,
+                ),
+                dim=-1,
+            )
+            action_bias = self.action_bias(action_bias_inputs).transpose(1, 2)
+            pointer_logits = pointer_logits + action_bias
+
+        logp = torch.log_softmax(pointer_logits, dim=-1)
         logp= logp.squeeze(1) # batch_size*k_size
 
         return logp
 
-    def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None, edge_mask=None):
+    def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None,
+                edge_mask=None, action_features=None):
         enhanced_node_feature = self.encode_graph(node_inputs, node_padding_mask, edge_mask)
-        logp = self.output_policy(enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask)
+        logp = self.output_policy(
+            enhanced_node_feature,
+            edge_inputs,
+            current_index,
+            edge_padding_mask,
+            node_padding_mask,
+            action_features,
+        )
         return logp
 
 
 class QNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim):
+    def __init__(self, input_dim, embedding_dim, action_feature_dim=0, use_action_features=False):
         super(QNet, self).__init__()
+        self.action_feature_dim = action_feature_dim
+        self.use_action_features = use_action_features
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.action_embedding = nn.Linear(embedding_dim*3, embedding_dim)
 
@@ -259,6 +303,16 @@ class QNet(nn.Module):
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
 
         self.q_values_layer = nn.Linear(embedding_dim, 1)
+        if self.use_action_features:
+            self.action_q_bias = nn.Sequential(
+                nn.Linear(embedding_dim * 2 + self.action_feature_dim, embedding_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(embedding_dim, 1),
+            )
+            nn.init.zeros_(self.action_q_bias[-1].weight)
+            nn.init.zeros_(self.action_q_bias[-1].bias)
+        else:
+            self.action_q_bias = None
 
     def encode_graph(self, node_inputs, node_padding_mask, edge_mask):
         embedding_feature = self.initial_embedding(node_inputs)
@@ -266,7 +320,8 @@ class QNet(nn.Module):
 
         return embedding_feature
 
-    def output_q_values(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask):
+    def output_q_values(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask,
+                        action_features=None):
         k_size = edge_inputs.size()[2]
         current_edge = edge_inputs
         current_edge = current_edge.permute(0, 2, 1)
@@ -277,14 +332,36 @@ class QNet(nn.Module):
         current_node_feature = torch.gather(enhanced_node_feature, 1, current_index.repeat(1, 1, embedding_dim))
 
         enhanced_current_node_feature, attention_weights = self.decoder(current_node_feature, enhanced_node_feature, node_padding_mask)
-        action_features = torch.cat((enhanced_current_node_feature.repeat(1, k_size, 1), current_node_feature.repeat(1, k_size, 1), neigboring_feature), dim=-1)
-        action_features = self.action_embedding(action_features)
-        q_values = self.q_values_layer(action_features)
+        q_action_inputs = torch.cat((enhanced_current_node_feature.repeat(1, k_size, 1), current_node_feature.repeat(1, k_size, 1), neigboring_feature), dim=-1)
+        embedded_action_features = self.action_embedding(q_action_inputs)
+        q_values = self.q_values_layer(embedded_action_features)
+
+        if self.action_q_bias is not None:
+            if action_features is None:
+                basin_action_features = torch.zeros(
+                    (enhanced_node_feature.size(0), k_size, self.action_feature_dim),
+                    dtype=enhanced_node_feature.dtype,
+                    device=enhanced_node_feature.device,
+                )
+            else:
+                basin_action_features = action_features.to(
+                    dtype=enhanced_node_feature.dtype,
+                    device=enhanced_node_feature.device,
+                )
+            q_bias_inputs = torch.cat(
+                (
+                    enhanced_current_node_feature.repeat(1, k_size, 1),
+                    neigboring_feature,
+                    basin_action_features,
+                ),
+                dim=-1,
+            )
+            q_values = q_values + self.action_q_bias(q_bias_inputs)
 
         if edge_padding_mask is not None:
-            current_mask = edge_padding_mask
+            current_mask = edge_padding_mask.clone()
         else:
-            current_mask = None
+            current_mask = torch.zeros((edge_inputs.size(0), 1, k_size), dtype=torch.int64, device=edge_inputs.device)
         current_mask[:, :, 0] = 1  # don't stay at current position
         #assert 0 in current_mask
         current_mask = current_mask.permute(0, 2, 1)
@@ -294,8 +371,14 @@ class QNet(nn.Module):
         return q_values, attention_weights
 
     def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None,
-                edge_mask=None):
+                edge_mask=None, action_features=None):
         enhanced_node_feature = self.encode_graph(node_inputs, node_padding_mask, edge_mask)
-        q_values, attention_weights = self.output_q_values(enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask)
+        q_values, attention_weights = self.output_q_values(
+            enhanced_node_feature,
+            edge_inputs,
+            current_index,
+            edge_padding_mask,
+            node_padding_mask,
+            action_features,
+        )
         return q_values, attention_weights
-

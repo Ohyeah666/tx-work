@@ -9,8 +9,8 @@ class Runner(object):
     def __init__(self, meta_agent_id):
         self.meta_agent_id = meta_agent_id
         self.device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM)
-        self.local_q_net = QNet(INPUT_DIM, EMBEDDING_DIM)
+        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, ACTION_FEATURE_DIM)
+        self.local_q_net = QNet(INPUT_DIM, EMBEDDING_DIM, ACTION_FEATURE_DIM, USE_BASIN_IN_Q)
         self.local_network.to(self.device)
         self.local_q_net.to(self.device)
 

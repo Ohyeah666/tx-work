@@ -172,10 +172,12 @@ class Graph_generator:
         )
         self.node_frontier_cluster_size = normalize_frontier_cluster_size(frontier_cluster_size, normalizer=50)
 
-    def get_normalized_shortest_path_distances(self, start_index):
+    def get_normalized_shortest_path_distances(self, start_index, return_first_hop=False):
         n_nodes = self.node_coords.shape[0]
         distances = np.full(n_nodes, np.inf)
         distances[start_index] = 0
+        first_hop = np.full(n_nodes, -1, dtype=int)
+        first_hop[start_index] = start_index
 
         adjacency = [[] for _ in range(n_nodes)]
         for from_node, edges in self.graph.edges.items():
@@ -192,21 +194,42 @@ class Graph_generator:
                 adjacency[from_index].append((to_index, length))
                 adjacency[to_index].append((from_index, length))
 
-        open_list = [(0, start_index)]
+        for edges in adjacency:
+            edges.sort(key=lambda item: item[0])
+
+        open_list = [(0, -1, start_index)]
         while open_list:
-            current_dist, current_index = heapq.heappop(open_list)
+            current_dist, _, current_index = heapq.heappop(open_list)
             if current_dist > distances[current_index]:
                 continue
 
             for next_index, edge_length in adjacency[current_index]:
                 next_dist = current_dist + edge_length
-                if next_dist < distances[next_index]:
+                if current_index == start_index:
+                    candidate_first_hop = next_index
+                else:
+                    candidate_first_hop = first_hop[current_index]
+
+                if candidate_first_hop < 0:
+                    continue
+
+                is_shorter = next_dist < distances[next_index] - 1e-9
+                is_tie_with_smaller_first_hop = (
+                    abs(next_dist - distances[next_index]) <= 1e-9 and
+                    (first_hop[next_index] < 0 or candidate_first_hop < first_hop[next_index])
+                )
+                if is_shorter or is_tie_with_smaller_first_hop:
                     distances[next_index] = next_dist
-                    heapq.heappush(open_list, (next_dist, next_index))
+                    first_hop[next_index] = candidate_first_hop
+                    heapq.heappush(open_list, (next_dist, candidate_first_hop, next_index))
 
         reachable = np.isfinite(distances)
         normalized_distances = distances / self.GRAPH_DISTANCE_NORMALIZER
         normalized_distances[~reachable] = self.UNREACHABLE_GRAPH_DISTANCE
+
+        if return_first_hop:
+            first_hop[~reachable] = -1
+            return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1), first_hop.reshape(n_nodes, 1)
 
         return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1)
 
@@ -316,4 +339,3 @@ class Graph_generator:
             assert route != []
         route = list(map(str, route))
         return dist, route
-
