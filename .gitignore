@@ -1,0 +1,56 @@
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+/env/
+.env
+.env.*
+!.env.example
+
+# Training outputs and experiment artifacts
+/model/
+/train/
+/gifs/
+/results/
+wandb/
+runs/
+logs/
+*.log
+events.out.tfevents.*
+
+# Model weights and serialized experiment data
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.pkl
+*.pickle
+*.npy
+*.npz
+
+# Datasets and generated maps kept outside core source
+/DungeonMaps/
+
+# Notebook and interactive-session caches
+.ipynb_checkpoints/
+
+# Local editor and assistant settings
+.vscode/
+.idea/
+.claude/
+.codex/
+.agents/
+
+# OS metadata
+.DS_Store
+Thumbs.db

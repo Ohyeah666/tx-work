@@ -115,6 +115,25 @@ def finalize_model_run_dir(model_run_dir, training_start_time):
     return target_dir
 
 
+def is_checkpoint_due(curr_episode, start_episode, gap):
+    return (
+        gap > 0 and
+        curr_episode >= start_episode and
+        (curr_episode - start_episode) % gap == 0
+    )
+
+
+def is_archive_checkpoint_due(curr_episode):
+    return (
+        is_checkpoint_due(curr_episode, ARCHIVE_CHECKPOINT_START_EPISODE, ARCHIVE_CHECKPOINT_GAP) or
+        is_checkpoint_due(
+            curr_episode,
+            ARCHIVE_CHECKPOINT_FREQUENT_START_EPISODE,
+            ARCHIVE_CHECKPOINT_FREQUENT_GAP,
+        )
+    )
+
+
 def main():
     # use GPU/CPU for driver/worker
     device = torch.device('cuda') if USE_GPU_GLOBAL else torch.device('cpu')
@@ -153,6 +172,34 @@ def main():
     model_run_dir = os.path.join(model_path, f"run_{run_start_str}__elapsed_running")
     os.makedirs(model_run_dir, exist_ok=True)
     print(f"Model checkpoints directory: {model_run_dir}")
+
+    def save_model_checkpoint(checkpoint_episode, save_latest=True, save_archive=False):
+        print('Saving model', end='\n')
+        checkpoint = {
+            "policy_model": global_policy_net.state_dict(),
+            "q_net1_model": global_q_net1.state_dict(),
+            "q_net2_model": global_q_net2.state_dict(),
+            "log_alpha": log_alpha,
+            "policy_optimizer": global_policy_optimizer.state_dict(),
+            "q_net1_optimizer": global_q_net1_optimizer.state_dict(),
+            "q_net2_optimizer": global_q_net2_optimizer.state_dict(),
+            "log_alpha_optimizer": log_alpha_optimizer.state_dict(),
+            "episode": checkpoint_episode,
+            "policy_lr_decay": policy_lr_decay.state_dict(),
+            "q_net1_lr_decay": q_net1_lr_decay.state_dict(),
+            "q_net2_lr_decay": q_net2_lr_decay.state_dict(),
+            "log_alpha_lr_decay": log_alpha_lr_decay.state_dict(),
+        }
+
+        if save_latest:
+            path_checkpoint = os.path.join(model_run_dir, 'checkpoint.pth')
+            torch.save(checkpoint, path_checkpoint)
+            print(f'Saved model to {path_checkpoint}', end='\n')
+
+        if save_archive:
+            archive_checkpoint = os.path.join(model_run_dir, f'checkpoint_episode_{checkpoint_episode}.pth')
+            torch.save(checkpoint, archive_checkpoint)
+            print(f'Saved archive checkpoint to {archive_checkpoint}', end='\n')
 
     curr_episode = 0
     target_q_update_counter = 1
@@ -210,8 +257,16 @@ def main():
     # launch the first job on each runner
     job_list = []
     for i, meta_agent in enumerate(meta_agents):
+        if curr_episode >= TOTAL_TRAIN_EPISODE:
+            break
         curr_episode += 1
         job_list.append(meta_agent.job.remote(weights_set, curr_episode))
+
+    reached_episode_limit = curr_episode >= TOTAL_TRAIN_EPISODE
+    if reached_episode_limit:
+        print(f"Reached TOTAL_TRAIN_EPISODE ({TOTAL_TRAIN_EPISODE}); no new episodes will be launched.")
+    last_checkpoint_episode = None
+    last_archive_checkpoint_episode = None
     
     # initialize metric collector
     metric_name = ['travel_dist', 'success_rate', 'explored_rate']
@@ -227,23 +282,29 @@ def main():
     
     # collect data from worker and do training
     try:
-        while True:
+        while job_list:
             # wait for any job to be completed
             done_id, job_list = ray.wait(job_list)
             # get the results
             done_jobs = ray.get(done_id)
-            
+
             # save experience and metric
+            last_info = None
             for job in done_jobs:
                 job_results, metrics, info = job
+                last_info = info
                 for i in range(len(experience_buffer)):
                     experience_buffer[i] += job_results[i]
                 for n in metric_name:
                     perf_metrics[n].append(metrics[n])
 
             # launch new task
-            curr_episode += 1
-            job_list.append(meta_agents[info['id']].job.remote(weights_set, curr_episode))
+            if curr_episode < TOTAL_TRAIN_EPISODE:
+                curr_episode += 1
+                job_list.append(meta_agents[last_info['id']].job.remote(weights_set, curr_episode))
+            elif not reached_episode_limit:
+                reached_episode_limit = True
+                print(f"Reached TOTAL_TRAIN_EPISODE ({TOTAL_TRAIN_EPISODE}); no new episodes will be launched.")
             
             # start training
             if curr_episode % 1 == 0 and len(experience_buffer[0]) >= MINIMUM_BUFFER_SIZE:
@@ -379,36 +440,22 @@ def main():
                 global_target_q_net2.eval()
 
             # save the model
-            should_save_checkpoint = curr_episode % 32 == 0
-            should_archive_checkpoint = (curr_episode >= ARCHIVE_CHECKPOINT_START_EPISODE and
-                                         curr_episode % ARCHIVE_CHECKPOINT_GAP == 0)
+            should_save_checkpoint = curr_episode % 32 == 0 and curr_episode != last_checkpoint_episode
+            should_archive_checkpoint = (
+                is_archive_checkpoint_due(curr_episode) and
+                curr_episode != last_archive_checkpoint_episode
+            )
             if should_save_checkpoint or should_archive_checkpoint:
-                print('Saving model', end='\n')
-                checkpoint = {"policy_model": global_policy_net.state_dict(),
-                                "q_net1_model": global_q_net1.state_dict(),
-                                "q_net2_model": global_q_net2.state_dict(),
-                                "log_alpha": log_alpha,
-                                "policy_optimizer": global_policy_optimizer.state_dict(),
-                                "q_net1_optimizer": global_q_net1_optimizer.state_dict(),
-                                "q_net2_optimizer": global_q_net2_optimizer.state_dict(),
-                                "log_alpha_optimizer": log_alpha_optimizer.state_dict(),
-                                "episode": curr_episode,
-                                "policy_lr_decay": policy_lr_decay.state_dict(),
-                                "q_net1_lr_decay": q_net1_lr_decay.state_dict(),
-                                "q_net2_lr_decay": q_net2_lr_decay.state_dict(),
-                                "log_alpha_lr_decay": log_alpha_lr_decay.state_dict()
-                        }
-
+                save_model_checkpoint(curr_episode, should_save_checkpoint, should_archive_checkpoint)
                 if should_save_checkpoint:
-                    path_checkpoint = os.path.join(model_run_dir, 'checkpoint.pth')
-                    torch.save(checkpoint, path_checkpoint)
-                    print(f'Saved model to {path_checkpoint}', end='\n')
-
+                    last_checkpoint_episode = curr_episode
                 if should_archive_checkpoint:
-                    archive_checkpoint = os.path.join(model_run_dir, f'checkpoint_episode_{curr_episode}.pth')
-                    torch.save(checkpoint, archive_checkpoint)
-                    print(f'Saved archive checkpoint to {archive_checkpoint}', end='\n')
-                    
+                    last_archive_checkpoint_episode = curr_episode
+
+        if curr_episode >= TOTAL_TRAIN_EPISODE:
+            save_model_checkpoint(curr_episode, save_latest=True, save_archive=is_archive_checkpoint_due(curr_episode))
+            print(f"Stopped training because TOTAL_TRAIN_EPISODE ({TOTAL_TRAIN_EPISODE}) was reached.")
+
     
     except KeyboardInterrupt:
         print("CTRL_C pressed. Killing remote workers")
