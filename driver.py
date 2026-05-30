@@ -400,8 +400,15 @@ def main():
 
             # save the model
             should_save_checkpoint = curr_episode % 32 == 0
-            should_archive_checkpoint = (curr_episode >= ARCHIVE_CHECKPOINT_START_EPISODE and
-                                         curr_episode % ARCHIVE_CHECKPOINT_GAP == 0)
+            should_sparse_archive_checkpoint = (
+                curr_episode >= ARCHIVE_CHECKPOINT_START_EPISODE and
+                (curr_episode - ARCHIVE_CHECKPOINT_START_EPISODE) % ARCHIVE_CHECKPOINT_GAP == 0
+            )
+            should_frequent_archive_checkpoint = (
+                curr_episode >= ARCHIVE_CHECKPOINT_FREQUENT_START_EPISODE and
+                (curr_episode - ARCHIVE_CHECKPOINT_FREQUENT_START_EPISODE) % ARCHIVE_CHECKPOINT_FREQUENT_GAP == 0
+            )
+            should_archive_checkpoint = should_sparse_archive_checkpoint or should_frequent_archive_checkpoint
             if should_save_checkpoint or should_archive_checkpoint:
                 print('Saving model', end='\n')
                 checkpoint = {"policy_model": global_policy_net.state_dict(),

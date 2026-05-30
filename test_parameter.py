@@ -10,9 +10,10 @@ USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
 FOLDER_NAME = 'ae_clean_basin5_node_9'
-model_path = f'model/{FOLDER_NAME}'
+model_path = f'model/{FOLDER_NAME}/run_20260529_233602__elapsed_24h15m48s'
 
-TEST_SET_NAME = 'easy'  # choose from 'complex', 'medium', 'easy', and 'test'
+
+TEST_SET_NAME = 'complex'  # choose from 'complex', 'medium', 'easy', and 'test'
 gifs_path = f'gifs/test'
 trajectory_path = f'results/trajectory'
 length_path = f'results/length'
