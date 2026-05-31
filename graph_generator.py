@@ -22,6 +22,7 @@ class Graph_generator:
     def __init__(self, map_size, k_size, sensor_range, frontier_resolution=4, plot=False,
                  expected_unknown_gain_update_mode="local",
                  expected_unknown_gain_local_radius_factor=2.0,
+                 expected_unknown_gain_ray_sample_count=0,
                  timing_profiler=None,
                  enable_timing_profiler=False,
                  timing_profiler_print_every=0,
@@ -50,6 +51,7 @@ class Graph_generator:
         self.node_frontier_cluster_size = None
         self.expected_unknown_gain_update_mode = expected_unknown_gain_update_mode
         self.expected_unknown_gain_local_radius_factor = expected_unknown_gain_local_radius_factor
+        self.expected_unknown_gain_ray_sample_count = expected_unknown_gain_ray_sample_count
         self.last_expected_unknown_gain_recompute_count = 0
         self.profiler = timing_profiler or TimingProfiler(
             enabled=enable_timing_profiler,
@@ -229,6 +231,7 @@ class Graph_generator:
                 self.node_coords,
                 robot_belief,
                 self.sensor_range,
+                ray_sample_count=self.expected_unknown_gain_ray_sample_count,
             )
             return self.node_expected_unknown_gain_raw
 
@@ -246,6 +249,7 @@ class Graph_generator:
                 self.node_coords[recompute_indices],
                 robot_belief,
                 self.sensor_range,
+                ray_sample_count=self.expected_unknown_gain_ray_sample_count,
             )
 
         self.last_expected_unknown_gain_recompute_count = int(recompute_indices.size)
@@ -399,18 +403,19 @@ class Graph_generator:
         distances, indices = knn.kneighbors(X)
 
         for i, p in enumerate(X):
-            for j, neighbour in enumerate(X[indices[i][:]]):
+            from_index = i
+            for j, neighbour_index in enumerate(indices[i][:]):
                 start = p
-                end = neighbour
+                end = X[neighbour_index]
                 if not self.check_collision(start, end, robot_belief):
-                    a = str(self.find_index_from_coords(node_coords, p))
-                    b = str(self.find_index_from_coords(node_coords, neighbour))
+                    a = str(from_index)
+                    b = str(int(neighbour_index))
                     self.graph.add_node(a)
                     self.graph.add_edge(a, b, distances[i, j])
 
                     if self.plot:
-                        self.x.append([p[0], neighbour[0]])
-                        self.y.append([p[1], neighbour[1]])
+                        self.x.append([p[0], end[0]])
+                        self.y.append([p[1], end[1]])
 
     def find_index_from_coords(self, node_coords, p):
         return np.where(np.linalg.norm(node_coords - p, axis=1) < 1e-5)[0][0]

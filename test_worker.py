@@ -31,6 +31,7 @@ class TestWorker:
             test_set_name=test_set_name,
             expected_unknown_gain_update_mode=EXPECTED_UNKNOWN_GAIN_UPDATE_MODE,
             expected_unknown_gain_local_radius_factor=EXPECTED_UNKNOWN_GAIN_LOCAL_RADIUS_FACTOR,
+            expected_unknown_gain_ray_sample_count=EXPECTED_UNKNOWN_GAIN_RAY_SAMPLE_COUNT,
             enable_timing_profiler=ENABLE_TIMING_PROFILER,
             timing_profiler_print_every=TIMING_PROFILER_PRINT_EVERY,
             timing_profiler_prefix=f"test-agent-{self.metaAgentID}",
@@ -201,11 +202,11 @@ class TestWorker:
 
     def calculate_edge_mask(self, edge_inputs):
         size = len(edge_inputs)
-        bias_matrix = np.ones((size, size))
-        for i in range(size):
-            for j in range(size):
-                if j in edge_inputs[i]:
-                    bias_matrix[i][j] = 0
+        bias_matrix = np.ones((size, size), dtype=np.float32)
+        for i, neighbors in enumerate(edge_inputs):
+            neighbor_indices = np.asarray(neighbors, dtype=int)
+            neighbor_indices = neighbor_indices[(neighbor_indices >= 0) & (neighbor_indices < size)]
+            bias_matrix[i, neighbor_indices] = 0
         return bias_matrix
 
     def make_gif(self, path, n):

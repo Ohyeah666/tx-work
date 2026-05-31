@@ -63,40 +63,110 @@ def sensor_perimeter_offsets(sensor_range):
     return tuple(dict.fromkeys(offsets))
 
 
+def _sample_offsets_evenly(offsets, ray_sample_count):
+    if ray_sample_count is None or ray_sample_count <= 0 or ray_sample_count >= len(offsets):
+        return offsets
+
+    if ray_sample_count == 1:
+        return (offsets[0],)
+
+    step = (len(offsets) - 1) / (ray_sample_count - 1)
+    sampled_indices = []
+    seen_indices = set()
+    for i in range(ray_sample_count):
+        index = int(round(i * step))
+        if index not in seen_indices:
+            sampled_indices.append(index)
+            seen_indices.add(index)
+    return tuple(offsets[index] for index in sampled_indices)
+
+
+@lru_cache(maxsize=32)
+def sensor_ray_cell_offsets(sensor_range, ray_sample_count=0):
+    radius = int(math.ceil(sensor_range))
+    radius_sq = sensor_range ** 2
+    perimeter_offsets = sensor_perimeter_offsets(radius)
+    selected_offsets = _sample_offsets_evenly(perimeter_offsets, ray_sample_count)
+
+    rays = []
+    for dx, dy in selected_offsets:
+        ray = []
+        for x, y in bresenham_cells((0, 0), (dx, dy)):
+            if x * x + y * y > radius_sq:
+                break
+            ray.append((x, y))
+        rays.append(tuple(ray))
+
+    return tuple(rays), len(perimeter_offsets), len(selected_offsets)
+
+
 def compute_expected_unknown_gain_for_nodes(node_coords, robot_belief, sensor_range,
-                                            occupied_value=OCCUPIED, unknown_value=UNKNOWN):
+                                            occupied_value=OCCUPIED, unknown_value=UNKNOWN,
+                                            ray_sample_count=0):
     gains = np.zeros((len(node_coords), 1), dtype=float)
     if len(node_coords) == 0:
         return gains
 
-    radius = int(math.ceil(sensor_range))
-    radius_sq = sensor_range ** 2
+    if ray_sample_count is None or ray_sample_count <= 0:
+        radius = int(math.ceil(sensor_range))
+        radius_sq = sensor_range ** 2
+        height, width = robot_belief.shape
+        offsets = sensor_perimeter_offsets(radius)
+
+        for i, coords in enumerate(node_coords):
+            x0 = int(round(coords[0]))
+            y0 = int(round(coords[1]))
+            visible_unknown = set()
+
+            for dx, dy in offsets:
+                end = (x0 + dx, y0 + dy)
+                for x, y in bresenham_cells((x0, y0), end):
+                    if not (0 <= x < width and 0 <= y < height):
+                        break
+
+                    rel_x = x - x0
+                    rel_y = y - y0
+                    if rel_x * rel_x + rel_y * rel_y > radius_sq:
+                        break
+
+                    cell_value = robot_belief[y, x]
+                    if cell_value == occupied_value:
+                        break
+                    if cell_value == unknown_value:
+                        visible_unknown.add(y * width + x)
+
+            gains[i, 0] = len(visible_unknown)
+
+        return gains
+
     height, width = robot_belief.shape
-    offsets = sensor_perimeter_offsets(radius)
+    rays, full_ray_count, used_ray_count = sensor_ray_cell_offsets(sensor_range, ray_sample_count)
+    ray_scale = full_ray_count / used_ray_count if used_ray_count < full_ray_count else 1.0
+    seen_unknown = np.zeros(height * width, dtype=np.int32)
 
     for i, coords in enumerate(node_coords):
         x0 = int(round(coords[0]))
         y0 = int(round(coords[1]))
-        visible_unknown = set()
+        stamp = i + 1
+        visible_unknown_count = 0
 
-        for dx, dy in offsets:
-            end = (x0 + dx, y0 + dy)
-            for x, y in bresenham_cells((x0, y0), end):
+        for ray in rays:
+            for rel_x, rel_y in ray:
+                x = x0 + rel_x
+                y = y0 + rel_y
                 if not (0 <= x < width and 0 <= y < height):
-                    break
-
-                rel_x = x - x0
-                rel_y = y - y0
-                if rel_x * rel_x + rel_y * rel_y > radius_sq:
                     break
 
                 cell_value = robot_belief[y, x]
                 if cell_value == occupied_value:
                     break
                 if cell_value == unknown_value:
-                    visible_unknown.add(y * width + x)
+                    flat_index = y * width + x
+                    if seen_unknown[flat_index] != stamp:
+                        seen_unknown[flat_index] = stamp
+                        visible_unknown_count += 1
 
-        gains[i, 0] = len(visible_unknown)
+        gains[i, 0] = visible_unknown_count * ray_scale
 
     return gains
 

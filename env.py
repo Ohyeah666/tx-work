@@ -12,6 +12,7 @@ class Env():
     def __init__(self, map_index, k_size=20, plot=False, test=False, test_set_name='easy',
                  expected_unknown_gain_update_mode='local',
                  expected_unknown_gain_local_radius_factor=2.0,
+                 expected_unknown_gain_ray_sample_count=0,
                  enable_timing_profiler=False,
                  timing_profiler_print_every=0,
                  timing_profiler_prefix=None):
@@ -47,6 +48,7 @@ class Env():
             plot=plot,
             expected_unknown_gain_update_mode=expected_unknown_gain_update_mode,
             expected_unknown_gain_local_radius_factor=expected_unknown_gain_local_radius_factor,
+            expected_unknown_gain_ray_sample_count=expected_unknown_gain_ray_sample_count,
             enable_timing_profiler=enable_timing_profiler,
             timing_profiler_print_every=timing_profiler_print_every,
             timing_profiler_prefix=timing_profiler_prefix or f"env-{map_index}",

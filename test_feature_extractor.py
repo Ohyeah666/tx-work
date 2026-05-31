@@ -60,6 +60,27 @@ def test_expected_unknown_gain_does_not_let_unknown_block_unknown():
     assert gain[0, 0] == 2
 
 
+def test_expected_unknown_gain_supports_deterministic_ray_sampling():
+    belief = np.ones((11, 11)) * 255
+    belief[2:9, 2:9] = UNKNOWN
+
+    gain_a = compute_expected_unknown_gain_for_nodes(
+        np.array([[5, 5]]),
+        belief,
+        sensor_range=4,
+        ray_sample_count=8,
+    )
+    gain_b = compute_expected_unknown_gain_for_nodes(
+        np.array([[5, 5]]),
+        belief,
+        sensor_range=4,
+        ray_sample_count=8,
+    )
+
+    np.testing.assert_allclose(gain_a, gain_b)
+    assert gain_a[0, 0] > 0
+
+
 def test_expected_unknown_gain_normalization_uses_sensor_disc_area_and_clips():
     raw_gain = np.array([[math.pi * 25], [math.pi * 50]])
 

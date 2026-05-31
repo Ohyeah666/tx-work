@@ -217,6 +217,8 @@ def main():
     # launch the first job on each runner
     job_list = []
     for i, meta_agent in enumerate(meta_agents):
+        if curr_episode >= TOTAL_TRAINING_EPISODES:
+            break
         curr_episode += 1
         job_list.append(meta_agent.job.remote(weights_set, curr_episode))
     
@@ -245,7 +247,7 @@ def main():
     
     # collect data from worker and do training
     try:
-        while True:
+        while job_list:
             # wait for any job to be completed
             done_id, job_list = ray.wait(job_list)
             # get the results
@@ -260,8 +262,9 @@ def main():
                     perf_metrics[n].append(metrics[n])
 
             # launch new task
-            curr_episode += 1
-            job_list.append(meta_agents[info['id']].job.remote(weights_set, curr_episode))
+            if curr_episode < TOTAL_TRAINING_EPISODES:
+                curr_episode += 1
+                job_list.append(meta_agents[info['id']].job.remote(weights_set, curr_episode))
             
             # start training
             if curr_episode % 1 == 0 and len(experience_buffer[0]) >= MINIMUM_BUFFER_SIZE:

@@ -11,7 +11,7 @@ class FakeNode:
 def test_expected_unknown_gain_local_cache_recomputes_local_and_new_nodes(monkeypatch):
     calls = []
 
-    def fake_compute_expected_unknown_gain(node_coords, robot_belief, sensor_range):
+    def fake_compute_expected_unknown_gain(node_coords, robot_belief, sensor_range, ray_sample_count=0):
         calls.append(node_coords.copy())
         base = 0 if len(calls) == 1 else 100
         return (node_coords[:, 0].reshape(-1, 1) + base).astype(float)
@@ -57,7 +57,7 @@ def test_expected_unknown_gain_local_cache_recomputes_local_and_new_nodes(monkey
 def test_expected_unknown_gain_full_mode_recomputes_all_nodes(monkeypatch):
     calls = []
 
-    def fake_compute_expected_unknown_gain(node_coords, robot_belief, sensor_range):
+    def fake_compute_expected_unknown_gain(node_coords, robot_belief, sensor_range, ray_sample_count=0):
         calls.append(node_coords.copy())
         return np.zeros((len(node_coords), 1), dtype=float)
 

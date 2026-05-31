@@ -16,6 +16,9 @@ BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER = NODE_PADDING_SIZE
 EXPECTED_UNKNOWN_GAIN_UPDATE_MODE = 'local'
 # local 模式的重算半径 = 该系数 * sensor_range；2.0 覆盖本步 belief 变化可能影响的节点。
 EXPECTED_UNKNOWN_GAIN_LOCAL_RADIUS_FACTOR = 2.0
+# expected_unknown_gain 的 ray 采样数；0 表示精确全量计算，>0 表示近似加速。
+# 640 就是 sensor_range = 80 下的全量
+EXPECTED_UNKNOWN_GAIN_RAY_SAMPLE_COUNT = 256
 # 计时 profiler 默认关闭；调性能时改 True，不改变训练数据和模型结构。
 ENABLE_TIMING_PROFILER = False
 # profiler 每多少次 graph 更新打印一次，0 表示不打印。
@@ -25,20 +28,22 @@ USE_GPU = False  # do you want to collect training data using GPUs
 USE_GPU_GLOBAL = True  # do you want to train the network using GPUs
 NUM_GPU = 1
 NUM_META_AGENT = 32
+# 训练总 episode 数；达到后停止提交新任务，并等待已提交任务完成。
+TOTAL_TRAINING_EPISODES = 17600
 LR = 1e-5
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'ae_clean_basin5_node_9'
+FOLDER_NAME = 'ae_clean_fast_basin5_node9'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
 LOAD_MODEL = False  # do you want to load the model trained before
 SAVE_IMG_GAP = 100
-ARCHIVE_CHECKPOINT_START_EPISODE = 11200
-ARCHIVE_CHECKPOINT_GAP = 640
+ARCHIVE_CHECKPOINT_START_EPISODE = 12000
+ARCHIVE_CHECKPOINT_GAP = 800
 ARCHIVE_CHECKPOINT_FREQUENT_START_EPISODE = 16000
-ARCHIVE_CHECKPOINT_FREQUENT_GAP = 64
+ARCHIVE_CHECKPOINT_FREQUENT_GAP = 320
 USE_WANDB = True  # do you want to log training metrics to Weights & Biases
 WANDB_PROJECT = 'ARiADNE'
 WANDB_ENTITY = None
