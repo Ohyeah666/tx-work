@@ -20,7 +20,16 @@ class Worker:
         self.k_size = K_SIZE
         self.save_image = save_image
 
-        self.env = Env(map_index=self.global_step, k_size=self.k_size, plot=save_image)
+        self.env = Env(
+            map_index=self.global_step,
+            k_size=self.k_size,
+            plot=save_image,
+            expected_unknown_gain_update_mode=EXPECTED_UNKNOWN_GAIN_UPDATE_MODE,
+            expected_unknown_gain_local_radius_factor=EXPECTED_UNKNOWN_GAIN_LOCAL_RADIUS_FACTOR,
+            enable_timing_profiler=ENABLE_TIMING_PROFILER,
+            timing_profiler_print_every=TIMING_PROFILER_PRINT_EVERY,
+            timing_profiler_prefix=f"train-agent-{self.metaAgentID}",
+        )
         self.local_policy_net = policy_net
         self.local_q_net = q_net
 
@@ -41,91 +50,97 @@ class Worker:
             self.episode_buffer.append([])
 
     def get_observations(self):
+        profiler = self.env.graph_generator.profiler
         # get observations
-        node_coords = copy.deepcopy(self.env.node_coords)
-        graph = copy.deepcopy(self.env.graph)
-        node_utility = copy.deepcopy(self.env.node_utility)
-        guidepost = copy.deepcopy(self.env.guidepost)
-        visit_count = copy.deepcopy(self.env.visit_count)
-        expected_unknown_gain = copy.deepcopy(self.env.node_expected_unknown_gain)
-        frontier_cluster_size = copy.deepcopy(self.env.node_frontier_cluster_size)
+        with profiler.section("observe.copy_state"):
+            node_coords = copy.deepcopy(self.env.node_coords)
+            graph = copy.deepcopy(self.env.graph)
+            node_utility = copy.deepcopy(self.env.node_utility)
+            guidepost = copy.deepcopy(self.env.guidepost)
+            visit_count = copy.deepcopy(self.env.visit_count)
+            expected_unknown_gain = copy.deepcopy(self.env.node_expected_unknown_gain)
+            frontier_cluster_size = copy.deepcopy(self.env.node_frontier_cluster_size)
 
         # get the node index of the current robot position
-        current_node_index = self.env.find_index_from_coords(self.robot_position)
-        graph_dist_to_current, reachable_nodes, first_hop = self.env.graph_generator.get_normalized_shortest_path_distances(
-            current_node_index, return_first_hop=True)
+        with profiler.section("observe.shortest_path"):
+            current_node_index = self.env.find_index_from_coords(self.robot_position)
+            graph_dist_to_current, reachable_nodes, first_hop = self.env.graph_generator.get_normalized_shortest_path_distances(
+                current_node_index, return_first_hop=True)
 
         # transfer to node inputs tensor
-        n_nodes = node_coords.shape[0]
-        node_inputs = build_node_inputs(
-            node_coords,
-            node_utility,
-            guidepost,
-            graph_dist_to_current,
-            reachable_nodes,
-            visit_count,
-            expected_unknown_gain,
-            frontier_cluster_size,
-            current_node_index,
-        )
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size, 9)
+        with profiler.section("observe.node_inputs"):
+            n_nodes = node_coords.shape[0]
+            node_inputs = build_node_inputs(
+                node_coords,
+                node_utility,
+                guidepost,
+                graph_dist_to_current,
+                reachable_nodes,
+                visit_count,
+                expected_unknown_gain,
+                frontier_cluster_size,
+                current_node_index,
+            )
+            node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size, 9)
 
-        # padding the number of node to a given node padding size
-        assert node_coords.shape[0] < self.node_padding_size
-        padding = torch.nn.ZeroPad2d((0, 0, 0, self.node_padding_size - node_coords.shape[0]))
-        node_inputs = padding(node_inputs)
+            # padding the number of node to a given node padding size
+            assert node_coords.shape[0] < self.node_padding_size
+            padding = torch.nn.ZeroPad2d((0, 0, 0, self.node_padding_size - node_coords.shape[0]))
+            node_inputs = padding(node_inputs)
 
-        # calculate a mask to padded nodes
-        node_padding_mask = torch.zeros((1, 1, node_coords.shape[0]), dtype=torch.int64).to(self.device)
-        node_padding = torch.ones((1, 1, self.node_padding_size - node_coords.shape[0]), dtype=torch.int64).to(
-            self.device)
-        node_padding_mask = torch.cat((node_padding_mask, node_padding), dim=-1)
+            # calculate a mask to padded nodes
+            node_padding_mask = torch.zeros((1, 1, node_coords.shape[0]), dtype=torch.int64).to(self.device)
+            node_padding = torch.ones((1, 1, self.node_padding_size - node_coords.shape[0]), dtype=torch.int64).to(
+                self.device)
+            node_padding_mask = torch.cat((node_padding_mask, node_padding), dim=-1)
 
-        current_index = torch.tensor([current_node_index]).unsqueeze(0).unsqueeze(0).to(self.device)  # (1,1,1)
+            current_index = torch.tensor([current_node_index]).unsqueeze(0).unsqueeze(0).to(self.device)  # (1,1,1)
 
         # prepare the adjacent list as padded edge inputs and the adjacent matrix as the edge mask
-        graph = list(graph.values())
-        edge_inputs = []
-        for node in graph:
-            node_edges = list(map(int, node))
-            edge_inputs.append(node_edges)
+        with profiler.section("observe.edge_inputs"):
+            graph = list(graph.values())
+            edge_inputs = []
+            for node in graph:
+                node_edges = list(map(int, node))
+                edge_inputs.append(node_edges)
 
-        adjacent_matrix = self.calculate_edge_mask(edge_inputs)
-        edge_mask = torch.from_numpy(adjacent_matrix).float().unsqueeze(0).to(self.device)
+            adjacent_matrix = self.calculate_edge_mask(edge_inputs)
+            edge_mask = torch.from_numpy(adjacent_matrix).float().unsqueeze(0).to(self.device)
 
-        # padding edge mask
-        assert len(edge_inputs) < self.node_padding_size
-        padding = torch.nn.ConstantPad2d(
-            (0, self.node_padding_size - len(edge_inputs), 0, self.node_padding_size - len(edge_inputs)), 1)
-        edge_mask = padding(edge_mask)
+            # padding edge mask
+            assert len(edge_inputs) < self.node_padding_size
+            padding = torch.nn.ConstantPad2d(
+                (0, self.node_padding_size - len(edge_inputs), 0, self.node_padding_size - len(edge_inputs)), 1)
+            edge_mask = padding(edge_mask)
 
-        edge = list(edge_inputs[current_node_index])
-        while len(edge) < self.k_size:
-            edge.append(0)
+            edge = list(edge_inputs[current_node_index])
+            while len(edge) < self.k_size:
+                edge.append(0)
 
-        edge_array = np.array(edge, dtype=int)
-        edge_inputs = torch.tensor(edge_array).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
+            edge_array = np.array(edge, dtype=int)
+            edge_inputs = torch.tensor(edge_array).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
 
-        # calculate a mask for the padded edges (denoted by 0)
-        edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
-        one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
-        edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
+            # calculate a mask for the padded edges (denoted by 0)
+            edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
+            one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
+            edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
 
-        action_features = build_basin_action_features(
-            edge_array,
-            first_hop,
-            graph_dist_to_current,
-            node_utility,
-            visit_count,
-            expected_unknown_gain,
-            frontier_cluster_size,
-            current_node_index,
-            edge_padding_mask=edge_padding_mask.cpu().numpy().reshape(-1),
-            k_size=self.k_size,
-            utility_sum_normalizer=BASIN_UTILITY_SUM_NORMALIZER,
-            expected_unknown_gain_sum_normalizer=BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER,
-        )
-        action_features = torch.FloatTensor(action_features).unsqueeze(0).to(self.device)
+        with profiler.section("observe.basin_features"):
+            action_features = build_basin_action_features(
+                edge_array,
+                first_hop,
+                graph_dist_to_current,
+                node_utility,
+                visit_count,
+                expected_unknown_gain,
+                frontier_cluster_size,
+                current_node_index,
+                edge_padding_mask=edge_padding_mask.cpu().numpy().reshape(-1),
+                k_size=self.k_size,
+                utility_sum_normalizer=BASIN_UTILITY_SUM_NORMALIZER,
+                expected_unknown_gain_sum_normalizer=BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER,
+            )
+            action_features = torch.FloatTensor(action_features).unsqueeze(0).to(self.device)
 
         observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, action_features
         return observations

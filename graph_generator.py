@@ -5,6 +5,7 @@ import heapq
 
 from node import Node
 from graph import Graph, a_star
+from timing_profiler import TimingProfiler
 from feature_extractor import (
     compute_expected_unknown_gain_for_nodes,
     compute_frontier_cluster_lookup,
@@ -18,7 +19,16 @@ class Graph_generator:
     GRAPH_DISTANCE_NORMALIZER = 640
     UNREACHABLE_GRAPH_DISTANCE = 2.0
 
-    def __init__(self, map_size, k_size, sensor_range, frontier_resolution=4, plot=False):
+    def __init__(self, map_size, k_size, sensor_range, frontier_resolution=4, plot=False,
+                 expected_unknown_gain_update_mode="local",
+                 expected_unknown_gain_local_radius_factor=2.0,
+                 timing_profiler=None,
+                 enable_timing_profiler=False,
+                 timing_profiler_print_every=0,
+                 timing_profiler_prefix="graph"):
+        if expected_unknown_gain_update_mode not in ("full", "local"):
+            raise ValueError("expected_unknown_gain_update_mode must be 'full' or 'local'")
+
         self.k_size = k_size
         self.graph = Graph()
         self.node_coords = None
@@ -36,7 +46,16 @@ class Graph_generator:
         self.guidepost = None
         self.visit_count = None
         self.node_expected_unknown_gain = None
+        self.node_expected_unknown_gain_raw = None
         self.node_frontier_cluster_size = None
+        self.expected_unknown_gain_update_mode = expected_unknown_gain_update_mode
+        self.expected_unknown_gain_local_radius_factor = expected_unknown_gain_local_radius_factor
+        self.last_expected_unknown_gain_recompute_count = 0
+        self.profiler = timing_profiler or TimingProfiler(
+            enabled=enable_timing_profiler,
+            print_every=timing_profiler_print_every,
+            prefix=timing_profiler_prefix,
+        )
 
     def edge_clear_all_nodes(self):
         self.graph = Graph()
@@ -49,44 +68,62 @@ class Graph_generator:
 
     def generate_graph(self, robot_location, robot_belief, frontiers):
         # get node_coords by finding the uniform points in free area
-        free_area = self.free_area(robot_belief)
-        free_area_to_check = free_area[:, 0] + free_area[:, 1] * 1j
-        uniform_points_to_check = self.uniform_points[:, 0] + self.uniform_points[:, 1] * 1j
-        _, _, candidate_indices = np.intersect1d(free_area_to_check, uniform_points_to_check, return_indices=True)
-        node_coords = self.uniform_points[candidate_indices]
+        with self.profiler.section("generate.free_nodes"):
+            free_area = self.free_area(robot_belief)
+            free_area_to_check = free_area[:, 0] + free_area[:, 1] * 1j
+            uniform_points_to_check = self.uniform_points[:, 0] + self.uniform_points[:, 1] * 1j
+            _, _, candidate_indices = np.intersect1d(
+                free_area_to_check,
+                uniform_points_to_check,
+                return_indices=True,
+            )
+            node_coords = self.uniform_points[candidate_indices]
 
-        # add robot location as one node coords
-        node_coords = np.concatenate((robot_location.reshape(1, 2), node_coords))
-        self.node_coords = self.unique_coords(node_coords).reshape(-1, 2)
+            # add robot location as one node coords
+            node_coords = np.concatenate((robot_location.reshape(1, 2), node_coords))
+            self.node_coords = self.unique_coords(node_coords).reshape(-1, 2)
 
         # generate the collision free graph
-        self.find_k_neighbor_all_nodes(self.node_coords, robot_belief)
+        with self.profiler.section("generate.graph_edges"):
+            self.find_k_neighbor_all_nodes(self.node_coords, robot_belief)
 
         # calculate the utility as the number of observable frontiers of each node
         # save the observable frontiers to be reused
-        self.node_utility = []
-        for coords in self.node_coords:
-            node = Node(coords, frontiers, robot_belief)
-            self.nodes_list.append(node)
-            utility = node.utility
-            self.node_utility.append(utility)
-        self.node_utility = np.array(self.node_utility)
+        with self.profiler.section("generate.node_utility"):
+            self.node_utility = []
+            for coords in self.node_coords:
+                node = Node(coords, frontiers, robot_belief)
+                self.nodes_list.append(node)
+                utility = node.utility
+                self.node_utility.append(utility)
+            self.node_utility = np.array(self.node_utility)
 
-        self.update_semantic_features(robot_belief, frontiers)
-        self.update_visit_info()
+        with self.profiler.section("generate.semantic_features"):
+            self.update_semantic_features(robot_belief, frontiers)
+
+        with self.profiler.section("generate.visit_info"):
+            self.update_visit_info()
+
+        self.profiler.maybe_print("generate_graph")
 
         return (self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count,
                 self.node_expected_unknown_gain, self.node_frontier_cluster_size)
 
     def update_graph(self, robot_position, robot_belief, old_robot_belief, frontiers, old_frontiers):
         # add uniform points in the new free area to the node coords
-        new_free_area = self.free_area((robot_belief - old_robot_belief > 0) * 255)
-        free_area_to_check = new_free_area[:, 0] + new_free_area[:, 1] * 1j
-        uniform_points_to_check = self.uniform_points[:, 0] + self.uniform_points[:, 1] * 1j
-        _, _, candidate_indices = np.intersect1d(free_area_to_check, uniform_points_to_check, return_indices=True)
-        new_node_coords = self.uniform_points[candidate_indices]
-        old_node_coords = copy.deepcopy(self.node_coords)
-        self.node_coords = np.concatenate((self.node_coords, new_node_coords))
+        with self.profiler.section("update.new_nodes"):
+            new_free_area = self.free_area((robot_belief - old_robot_belief > 0) * 255)
+            free_area_to_check = new_free_area[:, 0] + new_free_area[:, 1] * 1j
+            uniform_points_to_check = self.uniform_points[:, 0] + self.uniform_points[:, 1] * 1j
+            _, _, candidate_indices = np.intersect1d(
+                free_area_to_check,
+                uniform_points_to_check,
+                return_indices=True,
+            )
+            new_node_coords = self.uniform_points[candidate_indices]
+            old_node_coords = copy.deepcopy(self.node_coords)
+            self.node_coords = np.concatenate((self.node_coords, new_node_coords))
+            old_node_count = old_node_coords.shape[0]
 
         # update the collision free graph
         # for coords in new_node_coords:
@@ -98,38 +135,51 @@ class Graph_generator:
         #     self.edge_clear(coords)
         #     self.find_k_neighbor(coords, self.node_coords, robot_belief)
 
-        self.edge_clear_all_nodes()
-        self.find_k_neighbor_all_nodes(self.node_coords, robot_belief)
+        with self.profiler.section("update.graph_edges"):
+            self.edge_clear_all_nodes()
+            self.find_k_neighbor_all_nodes(self.node_coords, robot_belief)
 
         # update the observable frontiers through the change of frontiers
-        old_frontiers_to_check = old_frontiers[:, 0] + old_frontiers[:, 1] * 1j
-        new_frontiers_to_check = frontiers[:, 0] + frontiers[:, 1] * 1j
-        observed_frontiers_index = np.where(
-            np.isin(old_frontiers_to_check, new_frontiers_to_check, assume_unique=True) == False)
-        new_frontiers_index = np.where(
-            np.isin(new_frontiers_to_check, old_frontiers_to_check, assume_unique=True) == False)
-        observed_frontiers = old_frontiers[observed_frontiers_index]
-        new_frontiers = frontiers[new_frontiers_index]
-        for node in self.nodes_list:
-            if np.linalg.norm(node.coords - robot_position) > 2 * self.sensor_range:
-                pass
-            elif node.zero_utility_node is True:
-                pass
-            else:
-                node.update_observable_frontiers(observed_frontiers, new_frontiers, robot_belief)
+        with self.profiler.section("update.node_frontiers"):
+            old_frontiers_to_check = old_frontiers[:, 0] + old_frontiers[:, 1] * 1j
+            new_frontiers_to_check = frontiers[:, 0] + frontiers[:, 1] * 1j
+            observed_frontiers_index = np.where(
+                np.isin(old_frontiers_to_check, new_frontiers_to_check, assume_unique=True) == False)
+            new_frontiers_index = np.where(
+                np.isin(new_frontiers_to_check, old_frontiers_to_check, assume_unique=True) == False)
+            observed_frontiers = old_frontiers[observed_frontiers_index]
+            new_frontiers = frontiers[new_frontiers_index]
+            for node in self.nodes_list:
+                if np.linalg.norm(node.coords - robot_position) > 2 * self.sensor_range:
+                    pass
+                elif node.zero_utility_node is True:
+                    pass
+                else:
+                    node.update_observable_frontiers(observed_frontiers, new_frontiers, robot_belief)
 
-        for new_coords in new_node_coords:
-            node = Node(new_coords, frontiers, robot_belief)
-            self.nodes_list.append(node)
+            for new_coords in new_node_coords:
+                node = Node(new_coords, frontiers, robot_belief)
+                self.nodes_list.append(node)
 
-        self.node_utility = []
-        for i, coords in enumerate(self.node_coords):
-            utility = self.nodes_list[i].utility
-            self.node_utility.append(utility)
-        self.node_utility = np.array(self.node_utility)
+        with self.profiler.section("update.node_utility"):
+            self.node_utility = []
+            for i, coords in enumerate(self.node_coords):
+                utility = self.nodes_list[i].utility
+                self.node_utility.append(utility)
+            self.node_utility = np.array(self.node_utility)
 
-        self.update_semantic_features(robot_belief, frontiers)
-        self.update_visit_info()
+        with self.profiler.section("update.semantic_features"):
+            self.update_semantic_features(
+                robot_belief,
+                frontiers,
+                robot_position=robot_position,
+                old_node_count=old_node_count,
+            )
+
+        with self.profiler.section("update.visit_info"):
+            self.update_visit_info()
+
+        self.profiler.maybe_print("update_graph")
 
         return (self.node_coords, self.graph.edges, self.node_utility, self.guidepost, self.visit_count,
                 self.node_expected_unknown_gain, self.node_frontier_cluster_size)
@@ -150,26 +200,94 @@ class Graph_generator:
             self.guidepost[index] = 1
             self.visit_count[index] += 1
 
-    def update_semantic_features(self, robot_belief, frontiers):
-        expected_unknown_gain = compute_expected_unknown_gain_for_nodes(
-            self.node_coords,
-            robot_belief,
-            self.sensor_range,
+    def get_expected_unknown_gain_recompute_indices(self, robot_position, old_node_count):
+        n_nodes = self.node_coords.shape[0]
+        if old_node_count is None or old_node_count > n_nodes:
+            return np.arange(n_nodes, dtype=int)
+
+        recompute_mask = np.zeros(n_nodes, dtype=bool)
+        recompute_mask[old_node_count:] = True
+
+        if old_node_count > 0:
+            local_radius = self.expected_unknown_gain_local_radius_factor * self.sensor_range
+            dist_to_robot = np.linalg.norm(self.node_coords[:old_node_count] - robot_position, axis=1)
+            recompute_mask[:old_node_count] = dist_to_robot <= local_radius
+
+        return np.flatnonzero(recompute_mask)
+
+    def update_expected_unknown_gain_cache(self, robot_belief, recompute_indices=None):
+        n_nodes = self.node_coords.shape[0]
+        needs_full_recompute = (
+            recompute_indices is None or
+            self.node_expected_unknown_gain_raw is None or
+            self.node_expected_unknown_gain_raw.shape[0] > n_nodes
         )
+
+        if needs_full_recompute:
+            self.last_expected_unknown_gain_recompute_count = n_nodes
+            self.node_expected_unknown_gain_raw = compute_expected_unknown_gain_for_nodes(
+                self.node_coords,
+                robot_belief,
+                self.sensor_range,
+            )
+            return self.node_expected_unknown_gain_raw
+
+        expected_unknown_gain = np.zeros((n_nodes, 1), dtype=float)
+        old_cache_size = self.node_expected_unknown_gain_raw.shape[0]
+        expected_unknown_gain[:old_cache_size] = self.node_expected_unknown_gain_raw
+
+        recompute_indices = np.asarray(recompute_indices, dtype=int)
+        if old_cache_size < n_nodes:
+            new_indices = np.arange(old_cache_size, n_nodes, dtype=int)
+            recompute_indices = np.unique(np.concatenate((recompute_indices, new_indices)))
+
+        if recompute_indices.size > 0:
+            expected_unknown_gain[recompute_indices] = compute_expected_unknown_gain_for_nodes(
+                self.node_coords[recompute_indices],
+                robot_belief,
+                self.sensor_range,
+            )
+
+        self.last_expected_unknown_gain_recompute_count = int(recompute_indices.size)
+        self.node_expected_unknown_gain_raw = expected_unknown_gain
+        return expected_unknown_gain
+
+    def update_semantic_features(self, robot_belief, frontiers, robot_position=None, old_node_count=None):
+        recompute_indices = None
+        if (
+            self.expected_unknown_gain_update_mode == "local" and
+            robot_position is not None and
+            self.node_expected_unknown_gain_raw is not None
+        ):
+            recompute_indices = self.get_expected_unknown_gain_recompute_indices(
+                robot_position,
+                old_node_count,
+            )
+
+        with self.profiler.section("semantic.expected_unknown_gain"):
+            expected_unknown_gain = self.update_expected_unknown_gain_cache(
+                robot_belief,
+                recompute_indices,
+            )
+
         self.node_expected_unknown_gain = normalize_expected_unknown_gain(
             expected_unknown_gain,
             self.sensor_range,
         )
 
-        frontier_cluster_lookup = compute_frontier_cluster_lookup(
-            frontiers,
-            resolution=self.frontier_resolution,
-            connectivity=8,
-        )
-        frontier_cluster_size = compute_frontier_cluster_size_for_nodes(
-            self.nodes_list,
-            frontier_cluster_lookup,
-        )
+        with self.profiler.section("semantic.frontier_cluster_lookup"):
+            frontier_cluster_lookup = compute_frontier_cluster_lookup(
+                frontiers,
+                resolution=self.frontier_resolution,
+                connectivity=8,
+            )
+
+        with self.profiler.section("semantic.frontier_cluster_size"):
+            frontier_cluster_size = compute_frontier_cluster_size_for_nodes(
+                self.nodes_list,
+                frontier_cluster_lookup,
+            )
+
         self.node_frontier_cluster_size = normalize_frontier_cluster_size(frontier_cluster_size, normalizer=50)
 
     def get_normalized_shortest_path_distances(self, start_index, return_first_hop=False):

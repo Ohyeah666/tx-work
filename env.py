@@ -9,7 +9,12 @@ from node import *
 
 
 class Env():
-    def __init__(self, map_index, k_size=20, plot=False, test=False, test_set_name='easy'):
+    def __init__(self, map_index, k_size=20, plot=False, test=False, test_set_name='easy',
+                 expected_unknown_gain_update_mode='local',
+                 expected_unknown_gain_local_radius_factor=2.0,
+                 enable_timing_profiler=False,
+                 timing_profiler_print_every=0,
+                 timing_profiler_prefix=None):
         # import environment ground truth from dungeon files
         self.test = test
         if self.test:
@@ -40,6 +45,11 @@ class Env():
             frontier_resolution=self.resolution,
             k_size=k_size,
             plot=plot,
+            expected_unknown_gain_update_mode=expected_unknown_gain_update_mode,
+            expected_unknown_gain_local_radius_factor=expected_unknown_gain_local_radius_factor,
+            enable_timing_profiler=enable_timing_profiler,
+            timing_profiler_print_every=timing_profiler_print_every,
+            timing_profiler_prefix=timing_profiler_prefix or f"env-{map_index}",
         )
         self.graph_generator.route_node.append(self.start_position)
         self.node_coords, self.graph, self.node_utility, self.guidepost, self.visit_count = None, None, None, None, None

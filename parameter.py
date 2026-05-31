@@ -12,6 +12,14 @@ K_SIZE = 20  # the number of neighboring nodes
 # basin sum 类特征的固定归一化尺度，通常不需要改。
 BASIN_UTILITY_SUM_NORMALIZER = 50 * NODE_PADDING_SIZE
 BASIN_EXPECTED_UNKNOWN_GAIN_SUM_NORMALIZER = NODE_PADDING_SIZE
+# expected_unknown_gain 计算模式；local 使用缓存并只重算机器人附近节点，full 每步全量重算。
+EXPECTED_UNKNOWN_GAIN_UPDATE_MODE = 'local'
+# local 模式的重算半径 = 该系数 * sensor_range；2.0 覆盖本步 belief 变化可能影响的节点。
+EXPECTED_UNKNOWN_GAIN_LOCAL_RADIUS_FACTOR = 2.0
+# 计时 profiler 默认关闭；调性能时改 True，不改变训练数据和模型结构。
+ENABLE_TIMING_PROFILER = False
+# profiler 每多少次 graph 更新打印一次，0 表示不打印。
+TIMING_PROFILER_PRINT_EVERY = 0
 
 USE_GPU = False  # do you want to collect training data using GPUs
 USE_GPU_GLOBAL = True  # do you want to train the network using GPUs
