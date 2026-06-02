@@ -70,9 +70,9 @@ def run_test():
     global_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM).to(device)
 
     if device == 'cuda':
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_14000.pth')
+        checkpoint = torch.load(f'{model_path}/checkpoint_episode_15200.pth')
     else:
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_14000.pth', map_location = torch.device('cpu'))
+        checkpoint = torch.load(f'{model_path}/checkpoint_episode_15200.pth', map_location = torch.device('cpu'))
 
     global_network.load_state_dict(checkpoint['policy_model'])
 
