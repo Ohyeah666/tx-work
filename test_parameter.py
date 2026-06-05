@@ -1,12 +1,19 @@
-INPUT_DIM = 7
-EMBEDDING_DIM = 128
+from parameter import (
+    EMBEDDING_DIM,
+    FOLDER_NAME,
+    INPUT_DIM,
+    USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT,
+    USE_NODE_FEATURE_UTILITY_OVER_DIST,
+    USE_NODE_FEATURE_VISIT_COUNT,
+)
+
 K_SIZE = 20  # the number of neighbors
 
 USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
-FOLDER_NAME = 'new_node7'
-model_path = f'model/{FOLDER_NAME}/run_20260601_124513__elapsed_25h20m32s'
+# Set this to a run trained with the active node feature configuration.
+model_path = f'model/{FOLDER_NAME}/run_20260611_112324__elapsed_25h14m00s'
 
 TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'
 gifs_path = f'gifs/test'

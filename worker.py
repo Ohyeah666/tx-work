@@ -41,8 +41,15 @@ class Worker:
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
-        graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
-            current_node_index)
+        needs_graph_distance = (
+            USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT or
+            USE_NODE_FEATURE_UTILITY_OVER_DIST
+        )
+        graph_dist_to_current = None
+        reachable_nodes = None
+        if needs_graph_distance:
+            graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
+                current_node_index)
 
         # normalize observations
         node_coords = node_coords / 640
@@ -51,21 +58,31 @@ class Worker:
         # transfer to node inputs tensor
         n_nodes = node_coords.shape[0]
         node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        visit_count_inputs = visit_count.reshape((n_nodes, 1))
-        utility_over_dist = np.zeros_like(node_utility_inputs)
-        np.divide(
-            node_utility_inputs,
-            graph_dist_to_current + 1e-6,
-            out=utility_over_dist,
-            where=reachable_nodes,
-        )
-        utility_over_dist[current_node_index] = 0
-        node_inputs = np.concatenate(
-            (node_coords, node_utility_inputs, guidepost, graph_dist_to_current, utility_over_dist,
-             visit_count_inputs),
-            axis=1)
+        node_feature_list = [node_coords, node_utility_inputs, guidepost]
+
+        if USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT:
+            node_feature_list.append(graph_dist_to_current)
+
+        if USE_NODE_FEATURE_UTILITY_OVER_DIST:
+            utility_over_dist = np.zeros_like(node_utility_inputs)
+            np.divide(
+                node_utility_inputs,
+                graph_dist_to_current + 1e-6,
+                out=utility_over_dist,
+                where=reachable_nodes,
+            )
+            utility_over_dist[current_node_index] = 0
+            node_feature_list.append(utility_over_dist)
+
+        if USE_NODE_FEATURE_VISIT_COUNT:
+            visit_count_inputs = visit_count.reshape((n_nodes, 1))
+            node_feature_list.append(visit_count_inputs)
+
+        node_inputs = np.concatenate(node_feature_list, axis=1)
+        if node_inputs.shape[1] != INPUT_DIM:
+            raise ValueError(f'node_inputs feature dim {node_inputs.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
         node_inputs = np.nan_to_num(node_inputs, nan=0, posinf=0, neginf=0)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size+1, 7)
+        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size+1, INPUT_DIM)
 
         # padding the number of node to a given node padding size
         assert node_coords.shape[0] < self.node_padding_size
@@ -207,4 +224,3 @@ class Worker:
         # Remove files
         for filename in self.env.frame_files[:-1]:
             os.remove(filename)
-
