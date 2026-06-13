@@ -5,7 +5,7 @@ BATCH_SIZE = 128
 # Node input features are [x, y, utility, guidepost] plus the optional features below.
 BASE_NODE_FEATURE_DIM = 4
 # 调整下面三个参数以启用或禁用相应的节点特征，INPUT_DIM 会自动计算
-USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT = True
+USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT = False
 USE_NODE_FEATURE_UTILITY_OVER_DIST = True
 USE_NODE_FEATURE_VISIT_COUNT = False
 INPUT_DIM = (
@@ -26,7 +26,7 @@ LR = 1e-5
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'graph_dist_and_utility_over_dist'  # the name of the folder to save models and logs, should be set according to the active node feature configuration
+FOLDER_NAME = 'only_utility_over_dist'  # the name of the folder to save models and logs, should be set according to the active node feature configuration
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
