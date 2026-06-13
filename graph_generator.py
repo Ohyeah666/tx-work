@@ -138,9 +138,15 @@ class Graph_generator:
 
     def get_normalized_shortest_path_distances(self, start_index):
         n_nodes = self.node_coords.shape[0]
-        distances = np.full(n_nodes, np.inf)
-        distances[start_index] = 0
+        distances, _, reachable = self.get_shortest_path_tree(start_index)
 
+        normalized_distances = distances / self.GRAPH_DISTANCE_NORMALIZER
+        normalized_distances[~reachable] = self.UNREACHABLE_GRAPH_DISTANCE
+
+        return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1)
+
+    def build_undirected_adjacency(self):
+        n_nodes = self.node_coords.shape[0]
         adjacency = [[] for _ in range(n_nodes)]
         for from_node, edges in self.graph.edges.items():
             from_index = int(from_node)
@@ -156,6 +162,16 @@ class Graph_generator:
                 adjacency[from_index].append((to_index, length))
                 adjacency[to_index].append((from_index, length))
 
+        return adjacency
+
+    def get_shortest_path_tree(self, start_index):
+        n_nodes = self.node_coords.shape[0]
+        distances = np.full(n_nodes, np.inf)
+        first_hops = np.full(n_nodes, -1, dtype=int)
+        distances[start_index] = 0
+        first_hops[start_index] = start_index
+
+        adjacency = self.build_undirected_adjacency()
         open_list = [(0, start_index)]
         while open_list:
             current_dist, current_index = heapq.heappop(open_list)
@@ -164,15 +180,67 @@ class Graph_generator:
 
             for next_index, edge_length in adjacency[current_index]:
                 next_dist = current_dist + edge_length
+                if current_index == start_index:
+                    next_first_hop = next_index
+                else:
+                    next_first_hop = first_hops[current_index]
+
                 if next_dist < distances[next_index]:
                     distances[next_index] = next_dist
+                    first_hops[next_index] = next_first_hop
                     heapq.heappush(open_list, (next_dist, next_index))
 
         reachable = np.isfinite(distances)
-        normalized_distances = distances / self.GRAPH_DISTANCE_NORMALIZER
-        normalized_distances[~reachable] = self.UNREACHABLE_GRAPH_DISTANCE
+        return distances, first_hops, reachable
 
-        return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1)
+    def get_decayed_route_memory(self, gamma=0.95, sigma=80, window=64):
+        n_nodes = self.node_coords.shape[0]
+        if not self.route_node:
+            return np.zeros((n_nodes, 1))
+
+        adjacency = self.build_undirected_adjacency()
+        coord_to_index = {self.coords_to_key(coords): i for i, coords in enumerate(self.node_coords)}
+        recent_route = self.route_node[-window:]
+        first_global_step = len(self.route_node) - len(recent_route)
+        last_global_step = len(self.route_node) - 1
+
+        source_costs = {}
+        for offset, route_coords in enumerate(recent_route):
+            route_index = coord_to_index.get(self.coords_to_key(route_coords))
+            if route_index is None:
+                continue
+
+            route_step = first_global_step + offset
+            age = last_global_step - route_step
+            source_penalty = -sigma * age * np.log(gamma)
+            if route_index not in source_costs or source_penalty < source_costs[route_index]:
+                source_costs[route_index] = source_penalty
+
+        if not source_costs:
+            return np.zeros((n_nodes, 1))
+
+        costs = np.full(n_nodes, np.inf)
+        open_list = []
+        for source_index, source_penalty in source_costs.items():
+            costs[source_index] = source_penalty
+            heapq.heappush(open_list, (source_penalty, source_index))
+
+        while open_list:
+            current_cost, current_index = heapq.heappop(open_list)
+            if current_cost > costs[current_index]:
+                continue
+
+            for next_index, edge_length in adjacency[current_index]:
+                next_cost = current_cost + edge_length
+                if next_cost < costs[next_index]:
+                    costs[next_index] = next_cost
+                    heapq.heappush(open_list, (next_cost, next_index))
+
+        memory = np.zeros(n_nodes)
+        reachable = np.isfinite(costs)
+        memory[reachable] = np.exp(-costs[reachable] / sigma)
+        memory = np.clip(memory, 0, 1)
+        return memory.reshape(n_nodes, 1)
 
     def generate_uniform_points(self):
         x = np.linspace(0, self.map_x - 1, 30).round().astype(int)
@@ -280,5 +348,3 @@ class Graph_generator:
             assert route != []
         route = list(map(str, route))
         return dist, route
-
-

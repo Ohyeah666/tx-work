@@ -6,7 +6,9 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from env import Env
+from evaluation_metrics import BacktrackingMetricTracker
 from model import PolicyNet
+from node_features import NEXT_NODE_MEMORY_FEATURE, build_node_and_action_features
 from test_parameter import *
 
 
@@ -27,16 +29,32 @@ class TestWorker:
         self.travel_dist = 0
         self.robot_position = self.env.start_position
         self.perf_metrics = dict()
+        self.metric_tracker = BacktrackingMetricTracker()
 
     def run_episode(self, curr_episode):
         done = False
 
         observations = self.get_observations()
+        self.metric_tracker.reset(int(observations[3].item()))
         for i in range(128):
+            previous_position = self.robot_position.copy()
+            previous_free_area = np.sum(self.env.robot_belief == 255)
             next_position, action_index = self.select_node(observations)
+            edge_inputs = observations[1]
+            action_inputs = observations[2]
+            next_node_index = int(edge_inputs[0, 0, action_index.item()].item())
+            next_memory = float(action_inputs[0, action_index.item(), NEXT_NODE_MEMORY_FEATURE].item())
 
             reward, done, self.robot_position, self.travel_dist = self.env.step(self.robot_position, next_position,
                                                                                 self.travel_dist)
+            current_free_area = np.sum(self.env.robot_belief == 255)
+            step_dist = np.linalg.norm(previous_position - next_position)
+            self.metric_tracker.record_step(
+                next_index=next_node_index,
+                distance=step_dist,
+                next_memory=next_memory,
+                new_area_gain=current_free_area - previous_free_area,
+            )
 
             observations = self.get_observations()
 
@@ -65,6 +83,7 @@ class TestWorker:
         self.perf_metrics['travel_dist'] = self.travel_dist
         self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        self.perf_metrics.update(self.metric_tracker.compute(self.travel_dist))
 
         # save final path length
         if SAVE_LENGTH:
@@ -85,97 +104,38 @@ class TestWorker:
             self.make_gif(self.gifs_path, curr_episode)
 
     def get_observations(self):
-        # get observations
-        node_coords = copy.deepcopy(self.env.node_coords)
-        graph = copy.deepcopy(self.env.graph)
-        node_utility = copy.deepcopy(self.env.node_utility)
-        guidepost = copy.deepcopy(self.env.guidepost)
-        visit_count = copy.deepcopy(self.env.visit_count)
-
-        # get the node index of the current robot position
-        current_node_index = self.env.find_index_from_coords(self.robot_position)
-        needs_graph_distance = (
-            USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT or
-            USE_NODE_FEATURE_UTILITY_OVER_DIST
-        )
-        graph_dist_to_current = None
-        reachable_nodes = None
-        if needs_graph_distance:
-            graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
-                current_node_index)
-
-        # normalize observations
-        node_coords = node_coords / 640
-        node_utility = node_utility / 50
-
-        # transfer to node inputs tensor
-        n_nodes = node_coords.shape[0]
-        node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        node_feature_list = [node_coords, node_utility_inputs, guidepost]
-
-        if USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT:
-            node_feature_list.append(graph_dist_to_current)
-
-        if USE_NODE_FEATURE_UTILITY_OVER_DIST:
-            utility_over_dist = np.zeros_like(node_utility_inputs)
-            np.divide(
-                node_utility_inputs,
-                graph_dist_to_current + 1e-6,
-                out=utility_over_dist,
-                where=reachable_nodes,
-            )
-            utility_over_dist[current_node_index] = 0
-            node_feature_list.append(utility_over_dist)
-
-        if USE_NODE_FEATURE_VISIT_COUNT:
-            visit_count_inputs = visit_count.reshape((n_nodes, 1))
-            node_feature_list.append(visit_count_inputs)
-
-        node_inputs = np.concatenate(node_feature_list, axis=1)
-        if node_inputs.shape[1] != INPUT_DIM:
-            raise ValueError(f'node_inputs feature dim {node_inputs.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
-        node_inputs = np.nan_to_num(node_inputs, nan=0, posinf=0, neginf=0)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_size, INPUT_DIM)
+        features = build_node_and_action_features(self.env, self.robot_position, self.k_size)
+        node_inputs_np = features.node_inputs
+        if node_inputs_np.shape[1] != INPUT_DIM:
+            raise ValueError(f'node_inputs feature dim {node_inputs_np.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
+        node_inputs = torch.FloatTensor(node_inputs_np).unsqueeze(0).to(self.device)  # (1, node_size, INPUT_DIM)
 
         # calculate a mask for padded node
         node_padding_mask = None
 
-        current_index = torch.tensor([current_node_index]).unsqueeze(0).unsqueeze(0).to(self.device)  # (1,1,1)
+        current_index = torch.tensor([features.current_index]).unsqueeze(0).unsqueeze(0).to(self.device)
+        edge_mask = torch.from_numpy(features.edge_mask).float().unsqueeze(0).to(self.device)
+        edge_inputs = torch.tensor(features.edge_inputs, dtype=torch.long).unsqueeze(0).unsqueeze(0).to(self.device)
+        action_inputs = torch.FloatTensor(features.action_inputs).unsqueeze(0).to(self.device)
+        edge_padding_mask = torch.tensor(features.edge_padding_mask, dtype=torch.int64).unsqueeze(0).unsqueeze(0).to(
+            self.device)
 
-        # prepare the adjacent list as padded edge inputs and the adjacent matrix as the edge mask
-        graph = list(graph.values())
-        edge_inputs = []
-        for node in graph:
-            node_edges = list(map(int, node))
-            edge_inputs.append(node_edges)
-
-        adjacent_matrix = self.calculate_edge_mask(edge_inputs)
-        edge_mask = torch.from_numpy(adjacent_matrix).float().unsqueeze(0).to(self.device)
-
-        edge = edge_inputs[current_index]
-        while len(edge) < self.k_size:
-            edge.append(0)
-
-        edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
-
-        edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
-        one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
-        edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
-
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
+        observations = node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
+        node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
         with torch.no_grad():
-            logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask)
+            logp_list = self.local_policy_net(node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask)
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()
         else:
             action_index = torch.multinomial(logp_list.exp(), 1).long().squeeze(1)
 
-        next_node_index = edge_inputs[0, 0, action_index.item()]
+        next_node_index = int(edge_inputs[0, 0, action_index.item()].item())
+        if next_node_index == PADDING_NODE_INDEX:
+            raise ValueError('policy selected a padded edge')
         next_position = self.env.node_coords[next_node_index]
 
         return next_position, action_index

@@ -7,6 +7,7 @@ from datetime import datetime
 from model import PolicyNet
 from test_worker import TestWorker
 from test_parameter import *
+from evaluation_metrics import BACKTRACK_METRIC_NAMES
 
 
 def format_elapsed_for_name(start_time):
@@ -67,12 +68,12 @@ def run_test():
         print(f"Test GIFs directory: {test_gifs_path}")
 
     device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-    global_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM).to(device)
+    global_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, ACTION_FEATURE_DIM).to(device)
 
     if device == 'cuda':
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_17600.pth')
+        checkpoint = torch.load(f'{model_path}/checkpoint_episode_15200.pth')
     else:
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_17600.pth', map_location = torch.device('cpu'))
+        checkpoint = torch.load(f'{model_path}/checkpoint_episode_15200.pth', map_location = torch.device('cpu'))
 
     global_network.load_state_dict(checkpoint['policy_model'])
 
@@ -81,6 +82,7 @@ def run_test():
     curr_test = 0
 
     dist_history = []
+    metric_history = {name: [] for name in BACKTRACK_METRIC_NAMES}
 
     job_list = []
     for i, meta_agent in enumerate(meta_agents):
@@ -95,6 +97,8 @@ def run_test():
             for job in done_jobs:
                 metrics, info = job
                 dist_history.append(metrics['travel_dist'])
+                for name in BACKTRACK_METRIC_NAMES:
+                    metric_history[name].append(metrics.get(name, 0))
             if curr_test < NUM_TEST:
                 job_list.append(meta_agents[info['id']].job.remote(weights, curr_test))
                 curr_test += 1
@@ -102,6 +106,8 @@ def run_test():
         print('|#Total test:', NUM_TEST)
         print('|#Average length:', np.array(dist_history).mean())
         print('|#Length std:', np.array(dist_history).std())
+        for name, values in metric_history.items():
+            print(f'|#{name}: mean {np.array(values).mean():.6g} std {np.array(values).std():.6g}')
 
     except KeyboardInterrupt:
         print("CTRL_C pressed. Killing remote workers")
@@ -120,7 +126,7 @@ class Runner(object):
         self.test_set_name = test_set_name
         self.gifs_dir = gifs_dir
         self.device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM)
+        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, ACTION_FEATURE_DIM)
         self.local_network.to(self.device)
 
     def set_weights(self, weights):
