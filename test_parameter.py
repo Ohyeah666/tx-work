@@ -16,9 +16,9 @@ USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
 # Set this to a run trained with the active node feature configuration.
-model_path = f'model/{FOLDER_NAME}/run_20260613_111241__elapsed_running'
+model_path = f'model/{FOLDER_NAME}/run_20260614_124937__elapsed_25h16m24s'
 
-TEST_SET_NAME = 'complex'  # choose from 'complex', 'medium', 'easy', and 'test'
+TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'
 gifs_path = f'gifs/test'
 trajectory_path = f'results/trajectory'
 length_path = f'results/length'
