@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from env import Env
 from evaluation_metrics import BacktrackingMetricTracker
 from model import PolicyNet
-from node_features import NEXT_NODE_MEMORY_FEATURE, build_node_and_action_features
+from node_features import build_node_and_action_features
+from parameter import TRAJECTORY_MEMORY_GAMMA, TRAJECTORY_MEMORY_SIGMA, TRAJECTORY_MEMORY_WINDOW
 from test_parameter import *
 
 
@@ -41,9 +42,8 @@ class TestWorker:
             previous_free_area = np.sum(self.env.robot_belief == 255)
             next_position, action_index = self.select_node(observations)
             edge_inputs = observations[1]
-            action_inputs = observations[2]
             next_node_index = int(edge_inputs[0, 0, action_index.item()].item())
-            next_memory = float(action_inputs[0, action_index.item(), NEXT_NODE_MEMORY_FEATURE].item())
+            next_memory = self.get_metric_memory(next_node_index)
 
             reward, done, self.robot_position, self.travel_dist = self.env.step(self.robot_position, next_position,
                                                                                 self.travel_dist)
@@ -108,6 +108,11 @@ class TestWorker:
         node_inputs_np = features.node_inputs
         if node_inputs_np.shape[1] != INPUT_DIM:
             raise ValueError(f'node_inputs feature dim {node_inputs_np.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
+        if features.action_inputs.shape[1] != ACTION_FEATURE_DIM:
+            raise ValueError(
+                f'action_inputs feature dim {features.action_inputs.shape[1]} '
+                f'does not match ACTION_FEATURE_DIM {ACTION_FEATURE_DIM}'
+            )
         node_inputs = torch.FloatTensor(node_inputs_np).unsqueeze(0).to(self.device)  # (1, node_size, INPUT_DIM)
 
         # calculate a mask for padded node
@@ -139,6 +144,14 @@ class TestWorker:
         next_position = self.env.node_coords[next_node_index]
 
         return next_position, action_index
+
+    def get_metric_memory(self, node_index):
+        route_memory = self.env.graph_generator.get_decayed_route_memory(
+            gamma=TRAJECTORY_MEMORY_GAMMA,
+            sigma=TRAJECTORY_MEMORY_SIGMA,
+            window=TRAJECTORY_MEMORY_WINDOW,
+        )
+        return float(route_memory.reshape(-1)[node_index])
 
     def calculate_edge_mask(self, edge_inputs):
         size = len(edge_inputs)

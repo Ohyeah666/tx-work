@@ -37,6 +37,11 @@ class Worker:
         node_inputs_np = features.node_inputs
         if node_inputs_np.shape[1] != INPUT_DIM:
             raise ValueError(f'node_inputs feature dim {node_inputs_np.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
+        if features.action_inputs.shape[1] != ACTION_FEATURE_DIM:
+            raise ValueError(
+                f'action_inputs feature dim {features.action_inputs.shape[1]} '
+                f'does not match ACTION_FEATURE_DIM {ACTION_FEATURE_DIM}'
+            )
 
         n_nodes = node_inputs_np.shape[0]
         node_inputs = torch.FloatTensor(node_inputs_np).unsqueeze(0).to(self.device)

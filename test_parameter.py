@@ -4,6 +4,14 @@ from parameter import (
     INPUT_DIM,
     ACTION_FEATURE_DIM,
     PADDING_NODE_INDEX,
+    USE_ACTION_FEATURES,
+    USE_ACTION_FEATURE_BRANCH_GAIN,
+    USE_ACTION_FEATURE_BRANCH_MEMORY,
+    USE_ACTION_FEATURE_BRANCH_UTILITY,
+    USE_ACTION_FEATURE_EDGE_DIST,
+    USE_ACTION_FEATURE_IMMEDIATE_REVERSE,
+    USE_ACTION_FEATURE_NEXT_NODE_MEMORY,
+    USE_DIRECTIONAL_BRANCH_FEATURES,
     USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT,
     USE_NODE_FEATURE_UTILITY_OVER_DIST,
     USE_NODE_FEATURE_VISIT_COUNT,
@@ -15,7 +23,7 @@ K_SIZE = 20  # the number of neighbors
 USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
-# Set this to a run trained with the active node feature configuration.
+# Set this to a run trained with the active node/action feature configuration.
 model_path = f'model/{FOLDER_NAME}/run_20260614_124937__elapsed_25h16m24s'
 
 TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'

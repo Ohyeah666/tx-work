@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -11,6 +12,12 @@ from parameter import (
     TRAJECTORY_MEMORY_SIGMA,
     TRAJECTORY_MEMORY_WINDOW,
     USE_ACTION_FEATURES,
+    USE_ACTION_FEATURE_BRANCH_GAIN,
+    USE_ACTION_FEATURE_BRANCH_MEMORY,
+    USE_ACTION_FEATURE_BRANCH_UTILITY,
+    USE_ACTION_FEATURE_EDGE_DIST,
+    USE_ACTION_FEATURE_IMMEDIATE_REVERSE,
+    USE_ACTION_FEATURE_NEXT_NODE_MEMORY,
     USE_DIRECTIONAL_BRANCH_FEATURES,
     USE_NODE_FEATURE_GRAPH_DIST_TO_CURRENT,
     USE_NODE_FEATURE_TRAJECTORY_MEMORY,
@@ -20,12 +27,12 @@ from parameter import (
 )
 
 
-EDGE_DIST_FEATURE = 0
-IMMEDIATE_REVERSE_FEATURE = 1
-NEXT_NODE_MEMORY_FEATURE = 2
-BRANCH_UTILITY_FEATURE = 3
-BRANCH_GAIN_FEATURE = 4
-BRANCH_MEMORY_FEATURE = 5
+ACTION_FEATURE_EDGE_DIST = 'edge_dist_norm'
+ACTION_FEATURE_IMMEDIATE_REVERSE = 'is_immediate_reverse'
+ACTION_FEATURE_NEXT_NODE_MEMORY = 'next_node_memory'
+ACTION_FEATURE_BRANCH_UTILITY = 'branch_utility_norm'
+ACTION_FEATURE_BRANCH_GAIN = 'branch_gain_norm'
+ACTION_FEATURE_BRANCH_MEMORY = 'branch_memory'
 
 
 @dataclass(frozen=True)
@@ -35,14 +42,23 @@ class FeatureConfig:
     use_visit_count: bool = USE_NODE_FEATURE_VISIT_COUNT
     use_node_memory: bool = USE_NODE_FEATURE_TRAJECTORY_MEMORY
     use_action_features: bool = USE_ACTION_FEATURES
+    use_action_feature_edge_dist: bool = USE_ACTION_FEATURE_EDGE_DIST
+    use_action_feature_immediate_reverse: bool = USE_ACTION_FEATURE_IMMEDIATE_REVERSE
+    use_action_feature_next_node_memory: bool = USE_ACTION_FEATURE_NEXT_NODE_MEMORY
+    use_action_feature_branch_utility: bool = USE_ACTION_FEATURE_BRANCH_UTILITY
+    use_action_feature_branch_gain: bool = USE_ACTION_FEATURE_BRANCH_GAIN
+    use_action_feature_branch_memory: bool = USE_ACTION_FEATURE_BRANCH_MEMORY
     use_trajectory_memory: bool = USE_TRAJECTORY_MEMORY
     use_directional_branch_features: bool = USE_DIRECTIONAL_BRANCH_FEATURES
-    action_feature_dim: int = ACTION_FEATURE_DIM
+    action_feature_dim: Optional[int] = None
     graph_distance_normalizer: float = GRAPH_DISTANCE_NORMALIZER
     trajectory_memory_gamma: float = TRAJECTORY_MEMORY_GAMMA
     trajectory_memory_sigma: float = TRAJECTORY_MEMORY_SIGMA
     trajectory_memory_window: int = TRAJECTORY_MEMORY_WINDOW
     branch_gain_eps: float = BRANCH_GAIN_EPS
+
+    def __post_init__(self):
+        object.__setattr__(self, 'action_feature_dim', get_action_feature_dim(self))
 
 
 @dataclass
@@ -53,6 +69,54 @@ class ObservationFeatures:
     current_index: int
     edge_padding_mask: np.ndarray
     edge_mask: np.ndarray
+
+
+def get_active_action_feature_names(config):
+    if not config.use_action_features:
+        return ()
+
+    feature_names = []
+    if config.use_action_feature_edge_dist:
+        feature_names.append(ACTION_FEATURE_EDGE_DIST)
+    if config.use_action_feature_immediate_reverse:
+        feature_names.append(ACTION_FEATURE_IMMEDIATE_REVERSE)
+    if config.use_action_feature_next_node_memory:
+        feature_names.append(ACTION_FEATURE_NEXT_NODE_MEMORY)
+
+    if config.use_directional_branch_features:
+        if config.use_action_feature_branch_utility:
+            feature_names.append(ACTION_FEATURE_BRANCH_UTILITY)
+        if config.use_action_feature_branch_gain:
+            feature_names.append(ACTION_FEATURE_BRANCH_GAIN)
+        if config.use_action_feature_branch_memory:
+            feature_names.append(ACTION_FEATURE_BRANCH_MEMORY)
+
+    return tuple(feature_names)
+
+
+def get_action_feature_dim(config):
+    return len(get_active_action_feature_names(config))
+
+
+def get_action_feature_indices(config=None):
+    config = config or FeatureConfig()
+    return {
+        feature_name: index
+        for index, feature_name in enumerate(get_active_action_feature_names(config))
+    }
+
+
+def get_action_feature_index(feature_name, config=None):
+    return get_action_feature_indices(config).get(feature_name)
+
+
+_DEFAULT_ACTION_FEATURE_INDICES = get_action_feature_indices(FeatureConfig())
+EDGE_DIST_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_EDGE_DIST)
+IMMEDIATE_REVERSE_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_IMMEDIATE_REVERSE)
+NEXT_NODE_MEMORY_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_NEXT_NODE_MEMORY)
+BRANCH_UTILITY_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_BRANCH_UTILITY)
+BRANCH_GAIN_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_BRANCH_GAIN)
+BRANCH_MEMORY_FEATURE = _DEFAULT_ACTION_FEATURE_INDICES.get(ACTION_FEATURE_BRANCH_MEMORY)
 
 
 def build_node_and_action_features(env, robot_position, k_size, config=None):
@@ -177,40 +241,62 @@ def build_action_inputs(
     config,
 ):
     action_inputs = np.zeros((edge_inputs.shape[0], config.action_feature_dim))
-    if not config.use_action_features:
+    if not config.use_action_features or config.action_feature_dim == 0:
         return action_inputs
 
+    feature_indices = get_action_feature_indices(config)
     previous_index = find_previous_route_index(env, current_index)
     node_utility_norm = np.asarray(env.node_utility) / 50
     normalized_distances = distances / config.graph_distance_normalizer
+    edge_dist_idx = feature_indices.get(ACTION_FEATURE_EDGE_DIST)
+    immediate_reverse_idx = feature_indices.get(ACTION_FEATURE_IMMEDIATE_REVERSE)
+    next_node_memory_idx = feature_indices.get(ACTION_FEATURE_NEXT_NODE_MEMORY)
+    branch_utility_idx = feature_indices.get(ACTION_FEATURE_BRANCH_UTILITY)
+    branch_gain_idx = feature_indices.get(ACTION_FEATURE_BRANCH_GAIN)
+    branch_memory_idx = feature_indices.get(ACTION_FEATURE_BRANCH_MEMORY)
+    need_branch_nodes = any(
+        index is not None
+        for index in (branch_utility_idx, branch_gain_idx, branch_memory_idx)
+    )
 
     for action_slot, next_index in enumerate(edge_inputs):
         if edge_padding_mask[action_slot] == 1 or next_index == PADDING_NODE_INDEX:
             continue
 
-        branch_nodes = np.where((first_hops == next_index) & reachable)[0]
-        branch_nodes = branch_nodes[branch_nodes != current_index]
-
-        action_inputs[action_slot, EDGE_DIST_FEATURE] = get_edge_distance(
-            env,
-            current_index,
-            next_index,
-            config.graph_distance_normalizer,
-        )
-        action_inputs[action_slot, IMMEDIATE_REVERSE_FEATURE] = int(next_index == previous_index)
-        action_inputs[action_slot, NEXT_NODE_MEMORY_FEATURE] = route_memory[next_index]
-
-        if config.use_directional_branch_features and branch_nodes.size > 0:
-            branch_utility = np.sum(node_utility_norm[branch_nodes])
-            branch_gain = np.sum(
-                node_utility_norm[branch_nodes] /
-                (normalized_distances[branch_nodes] + config.branch_gain_eps)
+        if edge_dist_idx is not None:
+            action_inputs[action_slot, edge_dist_idx] = get_edge_distance(
+                env,
+                current_index,
+                next_index,
+                config.graph_distance_normalizer,
             )
-            branch_memory = np.mean(route_memory[branch_nodes])
 
-            action_inputs[action_slot, BRANCH_UTILITY_FEATURE] = np.clip(branch_utility, 0, 1)
-            action_inputs[action_slot, BRANCH_GAIN_FEATURE] = np.clip(branch_gain, 0, 1)
-            action_inputs[action_slot, BRANCH_MEMORY_FEATURE] = branch_memory
+        if immediate_reverse_idx is not None:
+            action_inputs[action_slot, immediate_reverse_idx] = int(next_index == previous_index)
+
+        if next_node_memory_idx is not None:
+            action_inputs[action_slot, next_node_memory_idx] = route_memory[next_index]
+
+        if config.use_directional_branch_features and need_branch_nodes:
+            branch_nodes = np.where((first_hops == next_index) & reachable)[0]
+            branch_nodes = branch_nodes[branch_nodes != current_index]
+            if branch_nodes.size == 0:
+                continue
+
+            if branch_utility_idx is not None:
+                branch_utility = np.sum(node_utility_norm[branch_nodes])
+                action_inputs[action_slot, branch_utility_idx] = np.clip(branch_utility, 0, 1)
+
+            if branch_gain_idx is not None:
+                branch_gain = np.sum(
+                    node_utility_norm[branch_nodes] /
+                    (normalized_distances[branch_nodes] + config.branch_gain_eps)
+                )
+                action_inputs[action_slot, branch_gain_idx] = np.clip(branch_gain, 0, 1)
+
+            if branch_memory_idx is not None:
+                branch_memory = np.mean(route_memory[branch_nodes])
+                action_inputs[action_slot, branch_memory_idx] = branch_memory
 
     return np.nan_to_num(action_inputs, nan=0, posinf=0, neginf=0)
 
