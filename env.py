@@ -198,7 +198,15 @@ class Env():
 
         return f
 
-    def plot_env(self, n, path, step, travel_dist):
+    def plot_env(
+            self,
+            n,
+            path,
+            step,
+            travel_dist,
+            node_color_values=None,
+            node_color_name=None,
+    ):
         plt.switch_backend('agg')
         # plt.ion()
         plt.cla()
@@ -206,13 +214,30 @@ class Env():
         plt.axis((0, self.ground_truth_size[1], self.ground_truth_size[0], 0))
         # for i in range(len(self.graph_generator.x)):
         #    plt.plot(self.graph_generator.x[i], self.graph_generator.y[i], 'tan', zorder=1)  # plot edges will take long time
-        plt.scatter(self.node_coords[:, 0], self.node_coords[:, 1], c=self.node_utility, zorder=5)
+        if node_color_values is None:
+            plt.scatter(self.node_coords[:, 0], self.node_coords[:, 1], c=self.node_utility, zorder=5)
+        else:
+            node_color_values = np.asarray(node_color_values).reshape(-1)
+            if node_color_values.shape[0] != self.node_coords.shape[0]:
+                raise ValueError(
+                    f'node_color_values length {node_color_values.shape[0]} '
+                    f'does not match node count {self.node_coords.shape[0]}'
+                )
+            plt.scatter(
+                self.node_coords[:, 0],
+                self.node_coords[:, 1],
+                c=node_color_values,
+                zorder=5,
+            )
         plt.scatter(self.frontiers[:, 0], self.frontiers[:, 1], c='r', s=2, zorder=3)
         plt.plot(self.xPoints, self.yPoints, 'b', linewidth=2)
         plt.plot(self.xPoints[-1], self.yPoints[-1], 'mo', markersize=8)
         plt.plot(self.xPoints[0], self.yPoints[0], 'co', markersize=8)
         # plt.pause(0.1)
-        plt.suptitle('Explored ratio: {:.4g}  Travel distance: {:.4g}'.format(self.explored_rate, travel_dist))
+        title = 'Explored ratio: {:.4g}  Travel distance: {:.4g}'.format(self.explored_rate, travel_dist)
+        if node_color_name:
+            title += f'  Node color: {node_color_name}'
+        plt.suptitle(title)
         plt.tight_layout()
         plt.savefig('{}/{}_{}_samples.png'.format(path, n, step), dpi=150)
         # plt.show()

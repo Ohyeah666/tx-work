@@ -228,11 +228,16 @@ class PolicyNet(nn.Module):
         current_edge = safe_edge_inputs.permute(0, 2, 1)
         embedding_dim = enhanced_node_feature.size()[2]
 
+        # 从所有节点 embedding 里（即enhanced_node_feature），把每个候选邻居对应的增强后的节点特征取出来，形状是 [B, K, D]
         neigboring_feature = torch.gather(enhanced_node_feature, 1, current_edge.repeat(1, 1, embedding_dim))
         if self.action_input_dim > 0 and action_inputs is not None:
+            # 把原始 action feature [B, K, A] 用一个线性层映射到 [B, K, D]
             action_feature = self.action_input_embedding(action_inputs)
+            # 关键：把“邻居节点 embedding”和“动作特征 embedding”进行融合
+            # 这一步之后，候选动作的neigboring_feature就同时包含了“邻居节点 + 动作语义”的信息
             neigboring_feature = self.neighbor_action_fusion(torch.cat((neigboring_feature, action_feature), dim=-1))
 
+        # 取出当前所在节点的 embedding，形状是 [B, 1, D]
         current_node_feature = torch.gather(enhanced_node_feature, 1, current_index.repeat(1, 1, embedding_dim))
 
         if edge_padding_mask is not None:
@@ -247,8 +252,13 @@ class PolicyNet(nn.Module):
         current_mask[:, :, 0] = 1 # don't stay at current position
         #assert 0 in current_mask
 
+        # 让“当前节点”对整张图做一次 cross-attention，吸收全局上下文，得到 enhanced 当前节点的特征
         enhanced_current_node_feature, _ = self.decoder(current_node_feature, enhanced_node_feature, node_padding_mask)
+        
+        # 把enhanced_current_node_feature和“原始当前节点”拼起来，再投影回 D 维（就是融合）
+        # 这相当于当前状态 query 的最终表示
         enhanced_current_node_feature = self.current_embedding(torch.cat((enhanced_current_node_feature, current_node_feature), dim=-1))
+        # 用 pointer network 对当前状态和每个候选动作打分
         logp = self.pointer(enhanced_current_node_feature, neigboring_feature, current_mask)
         logp= logp.squeeze(1) # batch_size*k_size
 

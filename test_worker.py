@@ -75,7 +75,19 @@ class TestWorker:
             # save a frame
             if self.save_image:
                 os.makedirs(self.gifs_path, exist_ok=True)
-                self.env.plot_env(self.global_step, self.gifs_path, i, self.travel_dist)
+                route_memory = self.env.graph_generator.get_decayed_route_memory(
+                    gamma=TRAJECTORY_MEMORY_GAMMA,
+                    sigma=TRAJECTORY_MEMORY_SIGMA,
+                    window=TRAJECTORY_MEMORY_WINDOW,
+                )
+                self.env.plot_env(
+                    self.global_step,
+                    self.gifs_path,
+                    i,
+                    self.travel_dist,
+                    node_color_values=route_memory,
+                    node_color_name='memory_i',
+                )
 
             if done:
                 break

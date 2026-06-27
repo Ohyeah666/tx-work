@@ -16,18 +16,18 @@ INPUT_DIM = (
     + int(USE_NODE_FEATURE_VISIT_COUNT)
     + int(USE_NODE_FEATURE_TRAJECTORY_MEMORY)
 )
-USE_ACTION_FEATURES = True  # 是否启用动作级 DTM 特征
+USE_ACTION_FEATURES = False  # 是否启用动作级 DTM 特征
 # 调整下面六个参数以启用或禁用相应的动作特征，ACTION_FEATURE_DIM 会自动计算
-USE_ACTION_FEATURE_EDGE_DIST = True  # edge_dist_norm_j
-USE_ACTION_FEATURE_IMMEDIATE_REVERSE = True  # is_immediate_reverse_j
-USE_ACTION_FEATURE_NEXT_NODE_MEMORY = True  # next_node_memory_j
-
+USE_ACTION_FEATURE_EDGE_DIST = False  # edge_dist_norm_j
+USE_ACTION_FEATURE_IMMEDIATE_REVERSE = False  # is_immediate_reverse_j
+USE_ACTION_FEATURE_NEXT_NODE_MEMORY = False  # next_node_memory_j
+# 下面三个是 branch 相关的特征
 USE_ACTION_FEATURE_BRANCH_UTILITY = False  # branch_utility_norm_j
 USE_ACTION_FEATURE_BRANCH_GAIN = False  # branch_gain_norm_j
-USE_ACTION_FEATURE_BRANCH_MEMORY = True  # branch_memory_j
+USE_ACTION_FEATURE_BRANCH_MEMORY = False  # branch_memory_j
 
 USE_TRAJECTORY_MEMORY = True  # 是否计算 max-decay 轨迹记忆场
-USE_DIRECTIONAL_BRANCH_FEATURES = True  # 是否允许计算 first-hop 方向分支动作特征
+USE_DIRECTIONAL_BRANCH_FEATURES = False  # 是否允许计算 first-hop 方向分支动作特征
 ACTION_FEATURE_DIM = int(USE_ACTION_FEATURES) * (
     int(USE_ACTION_FEATURE_EDGE_DIST)
     + int(USE_ACTION_FEATURE_IMMEDIATE_REVERSE)
@@ -59,7 +59,7 @@ LR = 1e-5
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'no_uod_dtm_action_memory'  # the name of the folder to save models and logs, should be set according to the active node feature configuration
+FOLDER_NAME = 'node_memory_only2'  # the name of the folder to save models and logs, should be set according to the active node feature configuration
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
