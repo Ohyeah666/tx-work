@@ -4,12 +4,16 @@ import os
 import imageio
 import numpy as np
 import torch
+from diagnostics import action_probability_overlay, node_feature_norm_overlay, semantic_map_image
 from env import Env
+from map_input import build_semantic_map_input
 from parameter import *
+from replay_schema import *
 
 
 class Worker:
-    def __init__(self, meta_agent_id, policy_net, q_net, global_step, device='cuda', greedy=False, save_image=False):
+    def __init__(self, meta_agent_id, policy_net, q_net, global_step, device='cuda', greedy=False, save_image=False,
+                 save_diagnostics=False):
         self.device = device
         self.greedy = greedy
         self.metaAgentID = meta_agent_id
@@ -17,6 +21,7 @@ class Worker:
         self.node_padding_size = NODE_PADDING_SIZE
         self.k_size = K_SIZE
         self.save_image = save_image
+        self.save_diagnostics = save_diagnostics
 
         self.env = Env(map_index=self.global_step, k_size=self.k_size, plot=save_image)
         self.local_policy_net = policy_net
@@ -28,8 +33,19 @@ class Worker:
 
         self.episode_buffer = []
         self.perf_metrics = dict()
-        for i in range(15):
+        self.diagnostic_images = None
+        for i in range(BUFFER_SIZE):
             self.episode_buffer.append([])
+
+    def build_map_inputs(self):
+        map_inputs = build_semantic_map_input(
+            self.env.downsampled_belief,
+            self.env.frontiers,
+            self.robot_position,
+            self.env.resolution,
+            FRONTIER_HEATMAP_SIGMA,
+        )
+        return torch.from_numpy(map_inputs).unsqueeze(0).to(self.device)
 
     def get_observations(self):
         # get observations
@@ -37,6 +53,7 @@ class Worker:
         graph = copy.deepcopy(self.env.graph)
         node_utility = copy.deepcopy(self.env.node_utility)
         guidepost = copy.deepcopy(self.env.guidepost)
+        map_inputs = self.build_map_inputs()
 
         # normalize observations
         node_coords = node_coords / 640
@@ -86,18 +103,18 @@ class Worker:
         edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
 
         # calculate a mask for the padded edges (denoted by 0)
-        edge_padding_mask = torch.zeros((1, 1, K_SIZE), dtype=torch.int64).to(self.device)
+        edge_padding_mask = torch.zeros((1, 1, self.k_size), dtype=torch.int64).to(self.device)
         one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
         edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
 
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
+        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
         with torch.no_grad():
             logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask,
-                                              edge_padding_mask, edge_mask)
+                                              edge_padding_mask, edge_mask, map_inputs)
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()
@@ -109,30 +126,72 @@ class Worker:
 
         return next_position, action_index
 
+    def build_diagnostic_images(self, observations):
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        with torch.no_grad():
+            logp_list, diagnostics = self.local_policy_net(
+                node_inputs,
+                edge_inputs,
+                current_index,
+                node_padding_mask,
+                edge_padding_mask,
+                edge_mask,
+                map_inputs,
+                return_diagnostics=True,
+            )
+
+        n_nodes = self.env.node_coords.shape[0]
+        node_feature_norm = diagnostics["node_map_feature_norm"][0, :n_nodes].detach().cpu().numpy()
+        action_probs = logp_list.exp()[0].detach().cpu().numpy()
+        edge_indices = edge_inputs[0, 0].detach().cpu().numpy()
+        edge_valid = ~edge_padding_mask[0, 0].detach().cpu().numpy().astype(bool)
+        edge_indices = edge_indices[edge_valid]
+        action_probs = action_probs[edge_valid]
+        current_node_index = int(current_index.item())
+
+        map_array = map_inputs[0].detach().cpu().numpy()
+        return {
+            "semantic_map": semantic_map_image(map_array),
+            "node_map_feature_norm": node_feature_norm_overlay(
+                self.env.robot_belief,
+                self.env.node_coords,
+                node_feature_norm,
+            ),
+            "action_probability": action_probability_overlay(
+                self.env.robot_belief,
+                self.env.node_coords,
+                current_node_index,
+                edge_indices,
+                action_probs,
+            ),
+        }
+
     def save_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
-        self.episode_buffer[0] += copy.deepcopy(node_inputs)
-        self.episode_buffer[1] += copy.deepcopy(edge_inputs)
-        self.episode_buffer[2] += copy.deepcopy(current_index)
-        self.episode_buffer[3] += copy.deepcopy(node_padding_mask).bool()
-        self.episode_buffer[4] += copy.deepcopy(edge_padding_mask).bool()
-        self.episode_buffer[5] += copy.deepcopy(edge_mask).bool()
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        self.episode_buffer[NODE_INPUTS] += copy.deepcopy(node_inputs)
+        self.episode_buffer[EDGE_INPUTS] += copy.deepcopy(edge_inputs)
+        self.episode_buffer[CURRENT_INDEX] += copy.deepcopy(current_index)
+        self.episode_buffer[NODE_PADDING_MASK] += copy.deepcopy(node_padding_mask).bool()
+        self.episode_buffer[EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
+        self.episode_buffer[EDGE_MASK] += copy.deepcopy(edge_mask).bool()
+        self.episode_buffer[MAP_INPUTS] += copy.deepcopy(map_inputs)
 
     def save_action(self, action_index):
-        self.episode_buffer[6] += action_index.unsqueeze(0).unsqueeze(0)
+        self.episode_buffer[ACTION] += action_index.unsqueeze(0).unsqueeze(0)
 
     def save_reward_done(self, reward, done):
-        self.episode_buffer[7] += copy.deepcopy(torch.FloatTensor([[[reward]]]).to(self.device))
-        self.episode_buffer[8] += copy.deepcopy(torch.tensor([[[(int(done))]]]).to(self.device))
+        self.episode_buffer[REWARD] += copy.deepcopy(torch.FloatTensor([[[reward]]]).to(self.device))
+        self.episode_buffer[DONE] += copy.deepcopy(torch.tensor([[[(int(done))]]]).to(self.device))
 
     def save_next_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
-        self.episode_buffer[9] += copy.deepcopy(node_inputs)
-        self.episode_buffer[10] += copy.deepcopy(edge_inputs)
-        self.episode_buffer[11] += copy.deepcopy(current_index)
-        self.episode_buffer[12] += copy.deepcopy(node_padding_mask).bool()
-        self.episode_buffer[13] += copy.deepcopy(edge_padding_mask).bool()
-        self.episode_buffer[14] += copy.deepcopy(edge_mask).bool()
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        self.episode_buffer[NEXT_NODE_INPUTS] += copy.deepcopy(node_inputs)
+        self.episode_buffer[NEXT_EDGE_INPUTS] += copy.deepcopy(edge_inputs)
+        self.episode_buffer[NEXT_CURRENT_INDEX] += copy.deepcopy(current_index)
+        self.episode_buffer[NEXT_NODE_PADDING_MASK] += copy.deepcopy(node_padding_mask).bool()
+        self.episode_buffer[NEXT_EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
+        self.episode_buffer[NEXT_EDGE_MASK] += copy.deepcopy(edge_mask).bool()
+        self.episode_buffer[NEXT_MAP_INPUTS] += copy.deepcopy(map_inputs)
 
     def run_episode(self, curr_episode):
         done = False
@@ -140,6 +199,8 @@ class Worker:
         observations = self.get_observations()
         for i in range(128):
             self.save_observations(observations)
+            if self.save_diagnostics and self.diagnostic_images is None:
+                self.diagnostic_images = self.build_diagnostic_images(observations)
             next_position, action_index = self.select_node(observations)
 
             self.save_action(action_index)
@@ -162,6 +223,8 @@ class Worker:
         self.perf_metrics['travel_dist'] = self.travel_dist
         self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        if self.diagnostic_images is not None:
+            self.perf_metrics['diagnostic_images'] = self.diagnostic_images
 
         # save gif
         if self.save_image:
@@ -190,5 +253,3 @@ class Worker:
         # Remove files
         for filename in self.env.frame_files[:-1]:
             os.remove(filename)
-
-

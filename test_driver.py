@@ -67,9 +67,10 @@ def run_test():
         print(f"Test GIFs directory: {test_gifs_path}")
 
     device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-    global_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM).to(device)
+    global_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                               map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
 
-    if device == 'cuda':
+    if device.type == 'cuda':
         checkpoint = torch.load(f'{model_path}/checkpoint_episode_12000.pth')
     else:
         checkpoint = torch.load(f'{model_path}/checkpoint_episode_12000.pth', map_location = torch.device('cpu'))
@@ -120,7 +121,8 @@ class Runner(object):
         self.test_set_name = test_set_name
         self.gifs_dir = gifs_dir
         self.device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM)
+        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                       map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT)
         self.local_network.to(self.device)
 
     def set_weights(self, weights):

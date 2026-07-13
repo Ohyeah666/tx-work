@@ -9,8 +9,10 @@ class Runner(object):
     def __init__(self, meta_agent_id):
         self.meta_agent_id = meta_agent_id
         self.device = torch.device('cuda') if USE_GPU else torch.device('cpu')
-        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM)
-        self.local_q_net = QNet(INPUT_DIM, EMBEDDING_DIM)
+        self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                       map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT)
+        self.local_q_net = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT)
         self.local_network.to(self.device)
         self.local_q_net.to(self.device)
 
@@ -25,8 +27,10 @@ class Runner(object):
 
     def do_job(self, episode_number):
         save_img = True if episode_number % SAVE_IMG_GAP == 0 else False
+        save_diagnostics = True if episode_number % DIAGNOSTIC_IMG_GAP == 0 else False
         # save_img = True
-        worker = Worker(self.meta_agent_id, self.local_network, self.local_q_net, episode_number, device=self.device, save_image=save_img, greedy=False)
+        worker = Worker(self.meta_agent_id, self.local_network, self.local_q_net, episode_number,
+                        device=self.device, save_image=save_img, save_diagnostics=save_diagnostics, greedy=False)
         worker.work(episode_number)
 
         job_results = worker.episode_buffer

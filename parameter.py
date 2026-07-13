@@ -3,6 +3,12 @@ MINIMUM_BUFFER_SIZE = 2000
 BATCH_SIZE = 128
 INPUT_DIM = 4
 EMBEDDING_DIM = 128
+MAP_INPUT_CHANNELS = 5
+MAP_FEATURE_DIM = 64
+FRONTIER_HEATMAP_SIGMA = 3.0
+MAP_GATE_BIAS_INIT = -2.0
+DIAGNOSTIC_IMG_GAP = 200
+
 NODE_PADDING_SIZE = 360  # the number of nodes will be padded to this value
 K_SIZE = 20  # the number of neighboring nodes
 
@@ -14,11 +20,11 @@ LR = 1e-5
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'origin_main'
+FOLDER_NAME = 'cnn_map_input'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
-LOAD_MODEL = True  # do you want to load the model trained before
+LOAD_MODEL = False  # map-enhanced model is trained from scratch by default
 SAVE_IMG_GAP = 100
 ARCHIVE_CHECKPOINT_START_EPISODE = 12000
 ARCHIVE_CHECKPOINT_GAP = 800

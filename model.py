@@ -1,6 +1,14 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
+
+
+def _compatible_group_count(num_channels, preferred_groups=8):
+    groups = min(preferred_groups, num_channels)
+    while num_channels % groups != 0:
+        groups -= 1
+    return groups
 
 
 # a pointer network layer for policy output
@@ -203,21 +211,126 @@ class Decoder(nn.Module):
         return tgt, w
 
 
+class SpatialMapEncoder(nn.Module):
+    def __init__(self, input_channels=5, feature_dim=64):
+        super(SpatialMapEncoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(input_channels, 16, kernel_size=3, stride=2, padding=1),
+            nn.GroupNorm(num_groups=4, num_channels=16),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
+            nn.GroupNorm(num_groups=4, num_channels=32),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, feature_dim, kernel_size=3, stride=2, padding=1),
+            nn.GroupNorm(num_groups=_compatible_group_count(feature_dim, 8), num_channels=feature_dim),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, map_inputs):
+        if map_inputs is None:
+            raise ValueError("map_inputs is required")
+        if map_inputs.dim() != 4:
+            raise ValueError("map_inputs must have shape [batch, channels, height, width]")
+        if map_inputs.dtype == torch.uint8:
+            map_inputs = map_inputs.float() / 255.0
+        else:
+            map_inputs = map_inputs.float()
+        return self.encoder(map_inputs)
+
+
+class NodeMapFeatureSampler(nn.Module):
+    def __init__(self, map_resolution=4, coord_scale=640):
+        super(NodeMapFeatureSampler, self).__init__()
+        self.map_resolution = map_resolution
+        self.coord_scale = coord_scale
+
+    def forward(self, feature_map, node_inputs, map_height, map_width, node_padding_mask=None):
+        batch_size, node_count, _ = node_inputs.size()
+        node_xy = node_inputs[:, :, :2] * self.coord_scale
+
+        original_width = map_width * self.map_resolution
+        original_height = map_height * self.map_resolution
+        x_norm = 2 * (node_xy[..., 0] / max(original_width - 1, 1)) - 1
+        y_norm = 2 * (node_xy[..., 1] / max(original_height - 1, 1)) - 1
+        grid = torch.stack((x_norm, y_norm), dim=-1)
+        grid = grid.view(batch_size, node_count, 1, 2)
+
+        sampled = F.grid_sample(
+            feature_map,
+            grid,
+            mode="bilinear",
+            padding_mode="border",
+            align_corners=True,
+        )
+        node_map_features = sampled.squeeze(-1).permute(0, 2, 1)
+
+        if node_padding_mask is not None:
+            if node_padding_mask.dim() == 3:
+                mask = node_padding_mask.squeeze(1)
+            elif node_padding_mask.dim() == 2:
+                mask = node_padding_mask
+            else:
+                raise ValueError("node_padding_mask must have shape [batch, nodes] or [batch, 1, nodes]")
+            mask = mask.unsqueeze(-1).bool()
+            node_map_features = node_map_features.masked_fill(mask, 0)
+
+        return node_map_features
+
+
+class NodeMapFusion(nn.Module):
+    def __init__(self, embedding_dim=128, map_feature_dim=64, gate_bias_init=-2.0):
+        super(NodeMapFusion, self).__init__()
+        self.map_projection = nn.Sequential(
+            nn.Linear(map_feature_dim, embedding_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(embedding_dim, embedding_dim),
+        )
+        self.map_gate = nn.Linear(embedding_dim * 2, embedding_dim)
+        nn.init.constant_(self.map_gate.bias, gate_bias_init)
+
+    def forward(self, node_feature, node_map_features):
+        map_projection = self.map_projection(node_map_features)
+        gate_inputs = torch.cat((node_feature, map_projection), dim=-1)
+        gate = torch.sigmoid(self.map_gate(gate_inputs))
+        fused_node_feature = node_feature + gate * map_projection
+        return fused_node_feature, gate
+
+
 class PolicyNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim):
+    def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
+                 gate_bias_init=-2.0):
         super(PolicyNet, self).__init__()
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.current_embedding = nn.Linear(embedding_dim * 2, embedding_dim)
+        self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
+        self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
+        self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
         self.pointer = SingleHeadAttention(embedding_dim)
 
-    def encode_graph(self, node_inputs, node_padding_mask, edge_mask):
+    def encode_graph(self, node_inputs, node_padding_mask, edge_mask, map_inputs=None):
         node_feature = self.initial_embedding(node_inputs)
+        map_feature_map = self.map_encoder(map_inputs)
+        map_height, map_width = map_inputs.shape[-2:]
+        node_map_features = self.node_map_sampler(
+            map_feature_map,
+            node_inputs,
+            map_height,
+            map_width,
+            node_padding_mask,
+        )
+        node_feature, gate = self.node_map_fusion(node_feature, node_map_features)
         enhanced_node_feature = self.encoder(src=node_feature, key_padding_mask=node_padding_mask, attn_mask=edge_mask)
 
-        return enhanced_node_feature
+        diagnostics = {
+            "map_feature_std": node_map_features.std(unbiased=False).detach(),
+            "fusion_gate_mean": gate.mean().detach(),
+            "fusion_gate_std": gate.std(unbiased=False).detach(),
+            "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
+        }
+        return enhanced_node_feature, diagnostics
 
     def output_policy(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask):
         current_edge = edge_inputs.permute(0, 2, 1)
@@ -228,10 +341,10 @@ class PolicyNet(nn.Module):
         current_node_feature = torch.gather(enhanced_node_feature, 1, current_index.repeat(1, 1, embedding_dim))
 
         if edge_padding_mask is not None:
-            current_mask = edge_padding_mask
+            current_mask = edge_padding_mask.clone()
             # print(current_mask)
         else:
-            current_mask = None
+            current_mask = torch.zeros_like(edge_inputs, dtype=torch.bool, device=edge_inputs.device)
 
         current_mask[:,:,0] = 1 # don't stay at current position
         #assert 0 in current_mask
@@ -243,28 +356,51 @@ class PolicyNet(nn.Module):
 
         return logp
 
-    def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None, edge_mask=None):
-        enhanced_node_feature = self.encode_graph(node_inputs, node_padding_mask, edge_mask)
+    def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None,
+                edge_mask=None, map_inputs=None, return_diagnostics=False):
+        enhanced_node_feature, diagnostics = self.encode_graph(node_inputs, node_padding_mask, edge_mask, map_inputs)
         logp = self.output_policy(enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask)
+        if return_diagnostics:
+            return logp, diagnostics
         return logp
 
 
 class QNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim):
+    def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
+                 gate_bias_init=-2.0):
         super(QNet, self).__init__()
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.action_embedding = nn.Linear(embedding_dim*3, embedding_dim)
+        self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
+        self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
+        self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
 
         self.q_values_layer = nn.Linear(embedding_dim, 1)
 
-    def encode_graph(self, node_inputs, node_padding_mask, edge_mask):
+    def encode_graph(self, node_inputs, node_padding_mask, edge_mask, map_inputs=None):
         embedding_feature = self.initial_embedding(node_inputs)
+        map_feature_map = self.map_encoder(map_inputs)
+        map_height, map_width = map_inputs.shape[-2:]
+        node_map_features = self.node_map_sampler(
+            map_feature_map,
+            node_inputs,
+            map_height,
+            map_width,
+            node_padding_mask,
+        )
+        embedding_feature, gate = self.node_map_fusion(embedding_feature, node_map_features)
         embedding_feature = self.encoder(src=embedding_feature, key_padding_mask=node_padding_mask, attn_mask=edge_mask)
 
-        return embedding_feature
+        diagnostics = {
+            "map_feature_std": node_map_features.std(unbiased=False).detach(),
+            "fusion_gate_mean": gate.mean().detach(),
+            "fusion_gate_std": gate.std(unbiased=False).detach(),
+            "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
+        }
+        return embedding_feature, diagnostics
 
     def output_q_values(self, enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask):
         k_size = edge_inputs.size()[2]
@@ -282,9 +418,9 @@ class QNet(nn.Module):
         q_values = self.q_values_layer(action_features)
 
         if edge_padding_mask is not None:
-            current_mask = edge_padding_mask
+            current_mask = edge_padding_mask.clone()
         else:
-            current_mask = None
+            current_mask = torch.zeros_like(edge_inputs, dtype=torch.bool, device=edge_inputs.device)
         current_mask[:, :, 0] = 1  # don't stay at current position
         #assert 0 in current_mask
         current_mask = current_mask.permute(0, 2, 1)
@@ -294,8 +430,9 @@ class QNet(nn.Module):
         return q_values, attention_weights
 
     def forward(self, node_inputs, edge_inputs, current_index, node_padding_mask=None, edge_padding_mask=None,
-                edge_mask=None):
-        enhanced_node_feature = self.encode_graph(node_inputs, node_padding_mask, edge_mask)
+                edge_mask=None, map_inputs=None, return_diagnostics=False):
+        enhanced_node_feature, diagnostics = self.encode_graph(node_inputs, node_padding_mask, edge_mask, map_inputs)
         q_values, attention_weights = self.output_q_values(enhanced_node_feature, edge_inputs, current_index, edge_padding_mask, node_padding_mask)
+        if return_diagnostics:
+            return q_values, attention_weights, diagnostics
         return q_values, attention_weights
-

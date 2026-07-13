@@ -16,6 +16,7 @@ except ImportError:
 from model import PolicyNet, QNet
 from runner import RLRunner
 from parameter import *
+from replay_schema import *
 
 ray.init()
 print("Welcome to RL autonomous exploration!")
@@ -39,6 +40,9 @@ TENSORBOARD_METRIC_TAGS = [
     'Perf/Travel Distance',
     'Perf/Success Rate',
     'Perf/Explored Rate',
+    'Map/Feature Std',
+    'Fusion/Gate Mean',
+    'Fusion/Gate Std',
 ]
 
 
@@ -121,14 +125,19 @@ def main():
     local_device = torch.device('cuda') if USE_GPU else torch.device('cpu')
     
     # initialize neural networks
-    global_policy_net = PolicyNet(INPUT_DIM, EMBEDDING_DIM).to(device)
-    global_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM).to(device)
-    global_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM).to(device)
+    global_policy_net = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                  map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
+    global_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                         map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
+    global_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                         map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
     log_alpha = torch.FloatTensor([-2]).to(device)  # not trainable when loaded from checkpoint, manually tune it for now
     log_alpha.requires_grad = True
 
-    global_target_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM).to(device)
-    global_target_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM).to(device)
+    global_target_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
+    global_target_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
+                                map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
     
     # initialize optimizers
     global_policy_optimizer = optim.Adam(global_policy_net.parameters(), lr=LR)
@@ -228,7 +237,7 @@ def main():
 
     # initialize training replay buffer
     experience_buffer = []
-    for i in range(15):
+    for i in range(BUFFER_SIZE):
         experience_buffer.append([])
     
     # collect data from worker and do training
@@ -246,6 +255,13 @@ def main():
                     experience_buffer[i] += job_results[i]
                 for n in metric_name:
                     perf_metrics[n].append(metrics[n])
+                diagnostic_images = metrics.get('diagnostic_images')
+                if diagnostic_images is not None and wandb_run is not None and wandb is not None:
+                    wandb_run.log({
+                        'Diagnostics/Semantic Map': wandb.Image(diagnostic_images['semantic_map']),
+                        'Diagnostics/Node Map Feature Norm': wandb.Image(diagnostic_images['node_map_feature_norm']),
+                        'Diagnostics/Action Probability': wandb.Image(diagnostic_images['action_probability']),
+                    }, step=curr_episode)
 
             # launch new task
             if curr_episode < TOTAL_TRAIN_EPISODE:
@@ -272,29 +288,31 @@ def main():
                         rollouts.append([experience_buffer[i][index] for index in sample_indices])
 
                     # stack batch data to tensors
-                    node_inputs_batch = torch.stack(rollouts[0]).to(device)
-                    edge_inputs_batch = torch.stack(rollouts[1]).to(device)
-                    current_inputs_batch = torch.stack(rollouts[2]).to(device)
-                    node_padding_mask_batch = torch.stack(rollouts[3]).to(device)
-                    edge_padding_mask_batch = torch.stack(rollouts[4]).to(device)
-                    edge_mask_batch = torch.stack(rollouts[5]).to(device)
-                    action_batch = torch.stack(rollouts[6]).to(device)
-                    reward_batch = torch.stack(rollouts[7]).to(device)
-                    done_batch = torch.stack(rollouts[8]).to(device)
-                    next_node_inputs_batch = torch.stack(rollouts[9]).to(device)
-                    next_edge_inputs_batch = torch.stack(rollouts[10]).to(device)
-                    next_current_inputs_batch = torch.stack(rollouts[11]).to(device)
-                    next_node_padding_mask_batch = torch.stack(rollouts[12]).to(device)
-                    next_edge_padding_mask_batch = torch.stack(rollouts[13]).to(device)
-                    next_edge_mask_batch = torch.stack(rollouts[14]).to(device)
+                    node_inputs_batch = torch.stack(rollouts[NODE_INPUTS]).to(device)
+                    edge_inputs_batch = torch.stack(rollouts[EDGE_INPUTS]).to(device)
+                    current_inputs_batch = torch.stack(rollouts[CURRENT_INDEX]).to(device)
+                    node_padding_mask_batch = torch.stack(rollouts[NODE_PADDING_MASK]).to(device)
+                    edge_padding_mask_batch = torch.stack(rollouts[EDGE_PADDING_MASK]).to(device)
+                    edge_mask_batch = torch.stack(rollouts[EDGE_MASK]).to(device)
+                    map_inputs_batch = torch.stack(rollouts[MAP_INPUTS]).to(device)
+                    action_batch = torch.stack(rollouts[ACTION]).to(device)
+                    reward_batch = torch.stack(rollouts[REWARD]).to(device)
+                    done_batch = torch.stack(rollouts[DONE]).to(device)
+                    next_node_inputs_batch = torch.stack(rollouts[NEXT_NODE_INPUTS]).to(device)
+                    next_edge_inputs_batch = torch.stack(rollouts[NEXT_EDGE_INPUTS]).to(device)
+                    next_current_inputs_batch = torch.stack(rollouts[NEXT_CURRENT_INDEX]).to(device)
+                    next_node_padding_mask_batch = torch.stack(rollouts[NEXT_NODE_PADDING_MASK]).to(device)
+                    next_edge_padding_mask_batch = torch.stack(rollouts[NEXT_EDGE_PADDING_MASK]).to(device)
+                    next_edge_mask_batch = torch.stack(rollouts[NEXT_EDGE_MASK]).to(device)
+                    next_map_inputs_batch = torch.stack(rollouts[NEXT_MAP_INPUTS]).to(device)
 
                     # SAC
                     with torch.no_grad():
-                        q_values1, _ = dp_q_net1(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch)
-                        q_values2, _ = dp_q_net2(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch)
+                        q_values1, _ = dp_q_net1(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch, map_inputs_batch)
+                        q_values2, _ = dp_q_net2(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch, map_inputs_batch)
                         q_values = torch.min(q_values1, q_values2)
 
-                    logp = dp_policy(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch)
+                    logp, policy_diagnostics = dp_policy(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch, map_inputs_batch, return_diagnostics=True)
                     policy_loss = torch.sum((logp.exp().unsqueeze(2) * (log_alpha.exp().detach() * logp.unsqueeze(2) - q_values.detach())), dim=1).mean()
 
                     global_policy_optimizer.zero_grad()
@@ -303,15 +321,15 @@ def main():
                     global_policy_optimizer.step()
                     
                     with torch.no_grad():
-                        next_logp = dp_policy(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch)
-                        next_q_values1, _ = dp_target_q_net1(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch)
-                        next_q_values2, _ = dp_target_q_net2(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch)
+                        next_logp = dp_policy(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch, next_map_inputs_batch)
+                        next_q_values1, _ = dp_target_q_net1(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch, next_map_inputs_batch)
+                        next_q_values2, _ = dp_target_q_net2(next_node_inputs_batch, next_edge_inputs_batch, next_current_inputs_batch, next_node_padding_mask_batch, next_edge_padding_mask_batch, next_edge_mask_batch, next_map_inputs_batch)
                         next_q_values = torch.min(next_q_values1, next_q_values2)
                         value_prime_batch = torch.sum(next_logp.unsqueeze(2).exp() * (next_q_values - log_alpha.exp() * next_logp.unsqueeze(2)), dim=1).unsqueeze(1)
                         target_q_batch = reward_batch + GAMMA * (1 - done_batch) * value_prime_batch
                     
                     mse_loss = nn.MSELoss()
-                    q_values1, _ = dp_q_net1(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch)
+                    q_values1, _ = dp_q_net1(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch, map_inputs_batch)
                     q1 = torch.gather(q_values1, 1, action_batch)
                     q1_loss = mse_loss(q1, target_q_batch.detach()).mean()
 
@@ -320,7 +338,7 @@ def main():
                     q_grad_norm = torch.nn.utils.clip_grad_norm_(global_q_net1.parameters(), max_norm=20000, norm_type=2)
                     global_q_net1_optimizer.step()
                     
-                    q_values2, _ = dp_q_net2(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch)
+                    q_values2, _ = dp_q_net2(node_inputs_batch, edge_inputs_batch, current_inputs_batch, node_padding_mask_batch, edge_padding_mask_batch, edge_mask_batch, map_inputs_batch)
                     q2 = torch.gather(q_values2, 1, action_batch)
                     q2_loss = mse_loss(q2, target_q_batch.detach()).mean()
 
@@ -349,7 +367,11 @@ def main():
                 for n in metric_name:
                     perf_data.append(np.nanmean(perf_metrics[n]))
                 data = [reward_batch.mean().item(), value_prime_batch.mean().item(), policy_loss.item(), q1_loss.item(),
-                        entropy.mean().item(), policy_grad_norm.item(), q_grad_norm.item(), log_alpha.item(), alpha_loss.item(), *perf_data]
+                        entropy.mean().item(), policy_grad_norm.item(), q_grad_norm.item(), log_alpha.item(), alpha_loss.item(),
+                        *perf_data,
+                        policy_diagnostics['map_feature_std'].mean().item(),
+                        policy_diagnostics['fusion_gate_mean'].mean().item(),
+                        policy_diagnostics['fusion_gate_std'].mean().item()]
                 training_data.append(data)
 
             # write record to tensorboard
