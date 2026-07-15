@@ -71,9 +71,9 @@ def run_test():
                                map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
 
     if device.type == 'cuda':
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_12000.pth')
+        checkpoint = torch.load(f'{model_path}/checkpoint.pth')
     else:
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_12000.pth', map_location = torch.device('cpu'))
+        checkpoint = torch.load(f'{model_path}/checkpoint.pth', map_location = torch.device('cpu'))
 
     global_network.load_state_dict(checkpoint['policy_model'])
 
