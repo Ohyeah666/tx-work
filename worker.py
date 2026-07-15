@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from env import Env
 from node_features import build_node_and_action_features
+from observations import build_observation_tensors
 from parameter import *
 
 
@@ -26,6 +27,7 @@ class Worker:
         self.current_node_index = 0
         self.travel_dist = 0
         self.robot_position = self.env.start_position
+        self.step_distances = []
 
         self.episode_buffer = []
         self.perf_metrics = dict()
@@ -34,45 +36,13 @@ class Worker:
 
     def get_observations(self):
         features = build_node_and_action_features(self.env, self.robot_position, self.k_size)
-        node_inputs_np = features.node_inputs
-        if node_inputs_np.shape[1] != INPUT_DIM:
-            raise ValueError(f'node_inputs feature dim {node_inputs_np.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
-        if features.action_inputs.shape[1] != ACTION_FEATURE_DIM:
-            raise ValueError(
-                f'action_inputs feature dim {features.action_inputs.shape[1]} '
-                f'does not match ACTION_FEATURE_DIM {ACTION_FEATURE_DIM}'
-            )
-
-        n_nodes = node_inputs_np.shape[0]
-        node_inputs = torch.FloatTensor(node_inputs_np).unsqueeze(0).to(self.device)
-
-        # padding the number of node to a given node padding size
-        assert n_nodes <= self.node_padding_size
-        padding = torch.nn.ZeroPad2d((0, 0, 0, self.node_padding_size - n_nodes))
-        node_inputs = padding(node_inputs)
-
-        # calculate a mask to padded nodes
-        node_padding_mask = torch.zeros((1, 1, n_nodes), dtype=torch.int64).to(self.device)
-        node_padding = torch.ones((1, 1, self.node_padding_size - n_nodes), dtype=torch.int64).to(
-            self.device)
-        node_padding_mask = torch.cat((node_padding_mask, node_padding), dim=-1)
-
-        current_index = torch.tensor([features.current_index]).unsqueeze(0).unsqueeze(0).to(self.device)
-        edge_mask = torch.from_numpy(features.edge_mask).float().unsqueeze(0).to(self.device)
-
-        # padding edge mask
-        assert n_nodes <= self.node_padding_size
-        padding = torch.nn.ConstantPad2d(
-            (0, self.node_padding_size - n_nodes, 0, self.node_padding_size - n_nodes), 1)
-        edge_mask = padding(edge_mask)
-
-        edge_inputs = torch.tensor(features.edge_inputs, dtype=torch.long).unsqueeze(0).unsqueeze(0).to(self.device)
-        action_inputs = torch.FloatTensor(features.action_inputs).unsqueeze(0).to(self.device)
-        edge_padding_mask = torch.tensor(features.edge_padding_mask, dtype=torch.int64).unsqueeze(0).unsqueeze(0).to(
-            self.device)
-
-        observations = node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
-        return observations
+        return build_observation_tensors(
+            features=features,
+            device=self.device,
+            input_dim=INPUT_DIM,
+            action_feature_dim=ACTION_FEATURE_DIM,
+            node_padding_size=self.node_padding_size,
+        )
 
     def select_node(self, observations):
         node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations
@@ -128,6 +98,8 @@ class Worker:
             next_position, action_index = self.select_node(observations)
 
             self.save_action(action_index)
+            step_dist = float(np.linalg.norm(self.robot_position - next_position))
+            self.step_distances.append(step_dist)
             reward, done, self.robot_position, self.travel_dist = self.env.step(self.robot_position, next_position, self.travel_dist)
             self.save_reward_done(reward, done)
  
@@ -147,6 +119,15 @@ class Worker:
         self.perf_metrics['travel_dist'] = self.travel_dist
         self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        if self.step_distances:
+            step_distances = np.asarray(self.step_distances, dtype=float)
+            self.perf_metrics['average_step_distance'] = float(np.mean(step_distances))
+            self.perf_metrics['long_edge_action_ratio'] = float(
+                np.mean(step_distances >= LONG_EDGE_DISTANCE_THRESHOLD)
+            )
+        else:
+            self.perf_metrics['average_step_distance'] = 0.0
+            self.perf_metrics['long_edge_action_ratio'] = 0.0
 
         # save gif
         if self.save_image:

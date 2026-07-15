@@ -1,19 +1,19 @@
 import imageio
 import csv
 import os
-import copy
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
 from env import Env
 from evaluation_metrics import BacktrackingMetricTracker
-from model import PolicyNet
 from node_features import build_node_and_action_features
+from observations import build_observation_tensors
 from parameter import TRAJECTORY_MEMORY_GAMMA, TRAJECTORY_MEMORY_SIGMA, TRAJECTORY_MEMORY_WINDOW
 from test_parameter import *
 
 
 class TestWorker:
+    __test__ = False
+
     def __init__(self, meta_agent_id, policy_net, global_step, device='cuda', greedy=False, save_image=False,
                  gifs_dir=None, test_set_name=TEST_SET_NAME):
         self.device = device
@@ -117,28 +117,12 @@ class TestWorker:
 
     def get_observations(self):
         features = build_node_and_action_features(self.env, self.robot_position, self.k_size)
-        node_inputs_np = features.node_inputs
-        if node_inputs_np.shape[1] != INPUT_DIM:
-            raise ValueError(f'node_inputs feature dim {node_inputs_np.shape[1]} does not match INPUT_DIM {INPUT_DIM}')
-        if features.action_inputs.shape[1] != ACTION_FEATURE_DIM:
-            raise ValueError(
-                f'action_inputs feature dim {features.action_inputs.shape[1]} '
-                f'does not match ACTION_FEATURE_DIM {ACTION_FEATURE_DIM}'
-            )
-        node_inputs = torch.FloatTensor(node_inputs_np).unsqueeze(0).to(self.device)  # (1, node_size, INPUT_DIM)
-
-        # calculate a mask for padded node
-        node_padding_mask = None
-
-        current_index = torch.tensor([features.current_index]).unsqueeze(0).unsqueeze(0).to(self.device)
-        edge_mask = torch.from_numpy(features.edge_mask).float().unsqueeze(0).to(self.device)
-        edge_inputs = torch.tensor(features.edge_inputs, dtype=torch.long).unsqueeze(0).unsqueeze(0).to(self.device)
-        action_inputs = torch.FloatTensor(features.action_inputs).unsqueeze(0).to(self.device)
-        edge_padding_mask = torch.tensor(features.edge_padding_mask, dtype=torch.int64).unsqueeze(0).unsqueeze(0).to(
-            self.device)
-
-        observations = node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask
-        return observations
+        return build_observation_tensors(
+            features=features,
+            device=self.device,
+            input_dim=INPUT_DIM,
+            action_feature_dim=ACTION_FEATURE_DIM,
+        )
 
     def select_node(self, observations):
         node_inputs, edge_inputs, action_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask = observations

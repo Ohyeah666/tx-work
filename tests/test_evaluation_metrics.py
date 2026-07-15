@@ -8,6 +8,7 @@ def test_backtracking_metric_tracker_records_all_metrics():
         memory_threshold=0.5,
         future_window=2,
         gain_threshold=1.0,
+        long_edge_distance_threshold=1.5,
         oscillation_windows=(4, 6),
     )
     tracker.reset(start_index=0)
@@ -27,3 +28,5 @@ def test_backtracking_metric_tracker_records_all_metrics():
     np.testing.assert_allclose(metrics['necessary_backtrack_ratio'], 1.0)
     np.testing.assert_allclose(metrics['backtrack_productivity_score'], 10 / 3)
     np.testing.assert_allclose(metrics['unique_exploration_efficiency'], 15 / 4)
+    np.testing.assert_allclose(metrics['average_step_distance'], 4 / 3)
+    np.testing.assert_allclose(metrics['long_edge_action_ratio'], 1 / 3)

@@ -4,9 +4,15 @@ from parameter import (
     BACKTRACK_FUTURE_WINDOW,
     BACKTRACK_GAIN_THRESHOLD,
     BACKTRACK_MEMORY_THRESHOLD,
+    LONG_EDGE_DISTANCE_THRESHOLD,
     LOCAL_OSCILLATION_WINDOWS,
 )
 
+
+DISTANCE_AWARE_METRIC_NAMES = [
+    'average_step_distance',
+    'long_edge_action_ratio',
+]
 
 BACKTRACK_METRIC_NAMES = [
     'immediate_reverse_rate',
@@ -18,6 +24,7 @@ BACKTRACK_METRIC_NAMES = [
     'necessary_backtrack_ratio',
     'backtrack_productivity_score',
     'unique_exploration_efficiency',
+    *DISTANCE_AWARE_METRIC_NAMES,
 ]
 
 
@@ -27,11 +34,13 @@ class BacktrackingMetricTracker:
         memory_threshold=BACKTRACK_MEMORY_THRESHOLD,
         future_window=BACKTRACK_FUTURE_WINDOW,
         gain_threshold=BACKTRACK_GAIN_THRESHOLD,
+        long_edge_distance_threshold=LONG_EDGE_DISTANCE_THRESHOLD,
         oscillation_windows=LOCAL_OSCILLATION_WINDOWS,
     ):
         self.memory_threshold = memory_threshold
         self.future_window = future_window
         self.gain_threshold = gain_threshold
+        self.long_edge_distance_threshold = long_edge_distance_threshold
         self.oscillation_windows = tuple(oscillation_windows)
         self.node_history = []
         self.records = []
@@ -101,6 +110,8 @@ class BacktrackingMetricTracker:
                 np.sum(future_gains[backtrack]) / max(backtrack_distance, 1e-6)
             ),
             'unique_exploration_efficiency': float(np.sum(new_area_gains) / total_distance),
+            'average_step_distance': float(np.mean(distances)),
+            'long_edge_action_ratio': float(np.mean(distances >= self.long_edge_distance_threshold)),
         }
         return metrics
 

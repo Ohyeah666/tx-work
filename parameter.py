@@ -16,9 +16,9 @@ INPUT_DIM = (
     + int(USE_NODE_FEATURE_VISIT_COUNT)
     + int(USE_NODE_FEATURE_TRAJECTORY_MEMORY)
 )
-USE_ACTION_FEATURES = False  # 是否启用动作级 DTM 特征
+USE_ACTION_FEATURES = True  # 是否启用动作级 DTM 特征
 # 调整下面六个参数以启用或禁用相应的动作特征，ACTION_FEATURE_DIM 会自动计算
-USE_ACTION_FEATURE_EDGE_DIST = False  # edge_dist_norm_j
+USE_ACTION_FEATURE_EDGE_DIST = True  # edge_dist_norm_j
 USE_ACTION_FEATURE_IMMEDIATE_REVERSE = False  # is_immediate_reverse_j
 USE_ACTION_FEATURE_NEXT_NODE_MEMORY = False  # next_node_memory_j
 # 下面三个是 branch 相关的特征
@@ -39,12 +39,16 @@ ACTION_FEATURE_DIM = int(USE_ACTION_FEATURES) * (
 TRAJECTORY_MEMORY_GAMMA = 0.95  # 轨迹记忆时间衰减系数
 TRAJECTORY_MEMORY_SIGMA = 80  # 轨迹记忆图距离扩散尺度
 TRAJECTORY_MEMORY_WINDOW = 64  # 轨迹记忆使用的最近步数
+USE_DISTANCE_AWARE_POINTER = True  # 是否在 pointer logits 中加入动作距离惩罚
+DISTANCE_ATTENTION_INIT_SCALE = 0.5  # softplus 后的初始距离惩罚系数
+DISTANCE_ATTENTION_MAX_NORM = 2.0  # edge_dist_norm_j 的最大裁剪值
 BRANCH_GAIN_EPS = 1e-6  # 分支收益除法防零项
 GRAPH_DISTANCE_NORMALIZER = 640  # 图距离和坐标归一化尺度
 PADDING_NODE_INDEX = -1  # edge padding 使用的无效节点编号
 BACKTRACK_MEMORY_THRESHOLD = 0.5  # 判定进入历史区域的 memory 阈值
 BACKTRACK_FUTURE_WINDOW = 6  # 回头有效性评估的未来步数
 BACKTRACK_GAIN_THRESHOLD = 1.0  # 判定回头后有有效探索收益的阈值
+LONG_EDGE_DISTANCE_THRESHOLD = 0.25 * GRAPH_DISTANCE_NORMALIZER  # 长边动作统计阈值
 LOCAL_OSCILLATION_WINDOWS = (4, 6)  # 局部震荡统计窗口
 
 EMBEDDING_DIM = 128
@@ -59,7 +63,7 @@ LR = 1e-5
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'node_memory_only2'  # the name of the folder to save models and logs, should be set according to the active node feature configuration
+FOLDER_NAME = 'dist_pointer_memory_i'  # the name of the folder to save models and logs, should be set according to the active node/action feature configuration
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'

@@ -1,6 +1,20 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
+
+from parameter import (
+    DISTANCE_ATTENTION_INIT_SCALE,
+    DISTANCE_ATTENTION_MAX_NORM,
+    USE_DISTANCE_AWARE_POINTER,
+)
+
+
+def inverse_softplus(value):
+    value = float(value)
+    if value <= 0:
+        return -20.0
+    return math.log(math.expm1(value))
 
 
 # a pointer network layer for policy output
@@ -24,7 +38,7 @@ class SingleHeadAttention(nn.Module):
             stdv = 1. / math.sqrt(param.size(-1))
             param.data.uniform_(-stdv, stdv)
 
-    def forward(self, q, k, mask=None):
+    def forward(self, q, k, mask=None, logit_bias=None):
 
         n_batch, n_key, n_dim = k.size()
         n_query = q.size(1)
@@ -40,6 +54,11 @@ class SingleHeadAttention(nn.Module):
 
         U = self.norm_factor * torch.matmul(Q, K.transpose(1, 2))
         U = self.tanh_clipping * torch.tanh(U)
+
+        if logit_bias is not None:
+            if logit_bias.dim() == 2:
+                logit_bias = logit_bias.unsqueeze(1)
+            U = U + logit_bias.to(device=U.device, dtype=U.dtype)
 
         if mask is not None:
             U = U.masked_fill(mask == 1, -1e8)
@@ -204,18 +223,53 @@ class Decoder(nn.Module):
 
 
 class PolicyNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim, action_input_dim=0):
+    def __init__(
+        self,
+        input_dim,
+        embedding_dim,
+        action_input_dim=0,
+        use_distance_aware_pointer=USE_DISTANCE_AWARE_POINTER,
+        pointer_distance_feature_index=0,
+        distance_attention_init_scale=DISTANCE_ATTENTION_INIT_SCALE,
+        distance_attention_max_norm=DISTANCE_ATTENTION_MAX_NORM,
+    ):
         super(PolicyNet, self).__init__()
         self.action_input_dim = action_input_dim
+        self.pointer_distance_feature_index = pointer_distance_feature_index
+        self.distance_attention_max_norm = distance_attention_max_norm
+        self.use_distance_aware_pointer = (
+            bool(use_distance_aware_pointer) and
+            self.action_input_dim > self.pointer_distance_feature_index
+        )
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.current_embedding = nn.Linear(embedding_dim * 2, embedding_dim)
         if self.action_input_dim > 0:
             self.action_input_embedding = nn.Linear(action_input_dim, embedding_dim)
             self.neighbor_action_fusion = nn.Linear(embedding_dim * 2, embedding_dim)
+        if self.use_distance_aware_pointer:
+            self.pointer_distance_scale_raw = nn.Parameter(
+                torch.tensor(
+                    inverse_softplus(distance_attention_init_scale),
+                    dtype=torch.float32,
+                )
+            )
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
         self.pointer = SingleHeadAttention(embedding_dim)
+
+    def get_pointer_distance_scale(self):
+        if not self.use_distance_aware_pointer:
+            return None
+        return F.softplus(self.pointer_distance_scale_raw)
+
+    def build_pointer_distance_logit_bias(self, action_inputs):
+        if not self.use_distance_aware_pointer or action_inputs is None:
+            return None
+
+        edge_dist = action_inputs[..., self.pointer_distance_feature_index]
+        edge_dist = torch.clamp(edge_dist, min=0.0, max=self.distance_attention_max_norm)
+        return -self.get_pointer_distance_scale() * edge_dist.unsqueeze(1)
 
     def encode_graph(self, node_inputs, node_padding_mask, edge_mask):
         node_feature = self.initial_embedding(node_inputs)
@@ -258,8 +312,9 @@ class PolicyNet(nn.Module):
         # 把enhanced_current_node_feature和“原始当前节点”拼起来，再投影回 D 维（就是融合）
         # 这相当于当前状态 query 的最终表示
         enhanced_current_node_feature = self.current_embedding(torch.cat((enhanced_current_node_feature, current_node_feature), dim=-1))
+        distance_logit_bias = self.build_pointer_distance_logit_bias(action_inputs)
         # 用 pointer network 对当前状态和每个候选动作打分
-        logp = self.pointer(enhanced_current_node_feature, neigboring_feature, current_mask)
+        logp = self.pointer(enhanced_current_node_feature, neigboring_feature, current_mask, distance_logit_bias)
         logp= logp.squeeze(1) # batch_size*k_size
 
         return logp

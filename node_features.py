@@ -6,6 +6,7 @@ import numpy as np
 from parameter import (
     ACTION_FEATURE_DIM,
     BRANCH_GAIN_EPS,
+    DISTANCE_ATTENTION_MAX_NORM,
     GRAPH_DISTANCE_NORMALIZER,
     PADDING_NODE_INDEX,
     TRAJECTORY_MEMORY_GAMMA,
@@ -52,6 +53,7 @@ class FeatureConfig:
     use_directional_branch_features: bool = USE_DIRECTIONAL_BRANCH_FEATURES
     action_feature_dim: Optional[int] = None
     graph_distance_normalizer: float = GRAPH_DISTANCE_NORMALIZER
+    distance_attention_max_norm: float = DISTANCE_ATTENTION_MAX_NORM
     trajectory_memory_gamma: float = TRAJECTORY_MEMORY_GAMMA
     trajectory_memory_sigma: float = TRAJECTORY_MEMORY_SIGMA
     trajectory_memory_window: int = TRAJECTORY_MEMORY_WINDOW
@@ -269,6 +271,7 @@ def build_action_inputs(
                 current_index,
                 next_index,
                 config.graph_distance_normalizer,
+                config.distance_attention_max_norm,
             )
 
         if immediate_reverse_idx is not None:
@@ -322,15 +325,21 @@ def find_previous_route_index(env, current_index):
     return previous_index
 
 
-def get_edge_distance(env, current_index, next_index, normalizer):
+def get_edge_distance(env, current_index, next_index, normalizer, max_norm=None):
     current_edges = get_graph_edges(env.graph).get(str(current_index), {})
     edge = current_edges.get(str(next_index))
     if edge is not None:
-        return float(edge.length) / normalizer
+        normalized_distance = float(edge.length) / normalizer
+        if max_norm is not None:
+            normalized_distance = np.clip(normalized_distance, 0, max_norm)
+        return float(normalized_distance)
 
     current_coords = env.node_coords[current_index]
     next_coords = env.node_coords[next_index]
-    return float(np.linalg.norm(current_coords - next_coords)) / normalizer
+    normalized_distance = float(np.linalg.norm(current_coords - next_coords)) / normalizer
+    if max_norm is not None:
+        normalized_distance = np.clip(normalized_distance, 0, max_norm)
+    return float(normalized_distance)
 
 
 def get_graph_edges(graph):

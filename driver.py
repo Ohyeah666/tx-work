@@ -39,6 +39,8 @@ TENSORBOARD_METRIC_TAGS = [
     'Perf/Travel Distance',
     'Perf/Success Rate',
     'Perf/Explored Rate',
+    'Perf/Average Step Distance',
+    'Perf/Long Edge Action Ratio',
 ]
 
 
@@ -269,7 +271,13 @@ def main():
     last_archive_checkpoint_episode = None
     
     # initialize metric collector
-    metric_name = ['travel_dist', 'success_rate', 'explored_rate']
+    metric_name = [
+        'travel_dist',
+        'success_rate',
+        'explored_rate',
+        'average_step_distance',
+        'long_edge_action_ratio',
+    ]
     training_data = []
     perf_metrics = {}
     for n in metric_name:
