@@ -6,7 +6,7 @@ EMBEDDING_DIM = 128
 MAP_INPUT_CHANNELS = 5
 MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
-MAP_GATE_BIAS_INIT = -1.5       # -2.0 时初始 gate 约 sigmoid(-2)=0.119。-2.0/-1.5/-1.0
+MAP_GATE_BIAS_INIT = -2.0       # -2.0 时初始 gate 约 sigmoid(-2)=0.119。-2.0/-1.5/-1.0
 DIAGNOSTIC_IMG_GAP = 200
 
 NODE_PADDING_SIZE = 360  # the number of nodes will be padded to this value
@@ -17,7 +17,7 @@ USE_GPU_GLOBAL = True  # do you want to train the network using GPUs
 NUM_GPU = 1
 NUM_META_AGENT = 32
 LR = 1e-5
-McooAP_LR = 3e-5           # map_inputs 分支的学习率
+MAP_LR = 1e-5           # map_inputs 分支的学习率
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
