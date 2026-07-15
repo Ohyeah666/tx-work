@@ -64,7 +64,7 @@ def test_worker_observation_includes_semantic_map_and_replay_slots():
     assert node_padding_mask.shape == (1, 1, 6)
     assert edge_padding_mask.shape == (1, 1, 4)
     assert edge_mask.shape == (1, 6, 6)
-    assert map_inputs.shape == (1, 2, 3, 4)
+    assert map_inputs.shape == (1, 5, 3, 4)
     assert map_inputs.dtype == torch.uint8
     assert len(worker.episode_buffer) == BUFFER_SIZE
     assert len(worker.episode_buffer[MAP_INPUTS]) == 1
@@ -83,4 +83,4 @@ def test_test_worker_observation_matches_training_tuple_without_node_padding():
     assert node_padding_mask is None
     assert edge_padding_mask.shape == (1, 1, 4)
     assert edge_mask.shape == (1, 3, 3)
-    assert map_inputs.shape == (1, 2, 3, 4)
+    assert map_inputs.shape == (1, 5, 3, 4)

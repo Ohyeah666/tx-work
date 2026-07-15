@@ -3,7 +3,7 @@ MINIMUM_BUFFER_SIZE = 2000
 BATCH_SIZE = 128
 INPUT_DIM = 4
 EMBEDDING_DIM = 128
-MAP_INPUT_CHANNELS = 2  # 地图输入只保留 unknown + frontier heatmap 两个探索引导通道
+MAP_INPUT_CHANNELS = 5
 MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
 MAP_GATE_BIAS_INIT = -2.0       # -2.0 时初始 gate 约 sigmoid(-2)=0.119。-2.0/-1.5/-1.0
@@ -21,7 +21,7 @@ MAP_LR = 1e-5           # map_inputs 分支的学习率
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'cnn_map_inputs_2ch_unknown_frontier'
+FOLDER_NAME = 'cnn_map_inputs_1.5_LR3'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'

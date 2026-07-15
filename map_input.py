@@ -2,6 +2,8 @@ import numpy as np
 from scipy.ndimage import distance_transform_edt
 
 
+FREE_VALUE = 255
+OBSTACLE_VALUE = 1
 UNKNOWN_VALUE = 127
 UINT8_MAX = 255
 
@@ -37,10 +39,10 @@ def _build_frontier_heatmap(frontiers, shape, resolution, sigma):
 
 
 def build_semantic_map_input(downsampled_belief, frontiers, robot_position, resolution, frontier_sigma=3.0):
-    """Build a 2-channel uint8 semantic map for the map-aware policy networks.
+    """Build a 5-channel uint8 semantic map for the map-aware policy networks.
 
-    Channels are unknown and frontier heatmap.
-    The unknown channel is binary 0/255. The frontier heatmap is quantized to 0..255.
+    Channels are free, obstacle, unknown, frontier heatmap, and robot position.
+    Binary channels use 0/255. The frontier heatmap is quantized to 0..255.
     """
     belief = np.asarray(downsampled_belief)
     if belief.ndim != 2:
@@ -49,12 +51,17 @@ def build_semantic_map_input(downsampled_belief, frontiers, robot_position, reso
         raise ValueError("resolution must be positive")
 
     height, width = belief.shape
-    semantic_map = np.zeros((2, height, width), dtype=np.uint8)
+    semantic_map = np.zeros((5, height, width), dtype=np.uint8)
 
-    # 2 通道消融实验：只保留探索任务最直接的 unknown 和 frontier heatmap。
-    semantic_map[0] = (belief == UNKNOWN_VALUE).astype(np.uint8) * UINT8_MAX
+    # 五通道语义图：显式提供可通行、障碍、未知、frontier heatmap 和当前位置。
+    semantic_map[0] = (belief == FREE_VALUE).astype(np.uint8) * UINT8_MAX
+    semantic_map[1] = (belief == OBSTACLE_VALUE).astype(np.uint8) * UINT8_MAX
+    semantic_map[2] = (belief == UNKNOWN_VALUE).astype(np.uint8) * UINT8_MAX
     frontier_heatmap = _build_frontier_heatmap(frontiers, belief.shape, resolution, frontier_sigma)
-    semantic_map[1] = np.round(np.clip(frontier_heatmap, 0.0, 1.0) * UINT8_MAX).astype(np.uint8)
-    # robot_position 参数保留用于兼容现有调用；本实验不再写入 position 通道。
+    semantic_map[3] = np.round(np.clip(frontier_heatmap, 0.0, 1.0) * UINT8_MAX).astype(np.uint8)
+
+    if robot_position is not None:
+        position_x, position_y = _to_grid_index(np.asarray(robot_position).reshape(1, 2), resolution, height, width)
+        semantic_map[4, position_y[0], position_x[0]] = UINT8_MAX
 
     return semantic_map

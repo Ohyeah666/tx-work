@@ -212,7 +212,7 @@ class Decoder(nn.Module):
 
 
 class SpatialMapEncoder(nn.Module):
-    def __init__(self, input_channels=2, feature_dim=64):
+    def __init__(self, input_channels=5, feature_dim=64):
         super(SpatialMapEncoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(input_channels, 16, kernel_size=3, stride=2, padding=1),
@@ -297,7 +297,7 @@ class NodeMapFusion(nn.Module):
 
 
 class PolicyNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim, map_input_channels=2, map_feature_dim=64, map_resolution=4,
+    def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
                  gate_bias_init=-2.0):
         super(PolicyNet, self).__init__()
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
@@ -366,7 +366,7 @@ class PolicyNet(nn.Module):
 
 
 class QNet(nn.Module):
-    def __init__(self, input_dim, embedding_dim, map_input_channels=2, map_feature_dim=64, map_resolution=4,
+    def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
                  gate_bias_init=-2.0):
         super(QNet, self).__init__()
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
