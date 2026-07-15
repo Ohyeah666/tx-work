@@ -119,6 +119,35 @@ def finalize_model_run_dir(model_run_dir, training_start_time):
     return target_dir
 
 
+def map_lr_param_groups(model):
+    map_param_ids = {
+        id(param)
+        for module in (model.map_encoder, model.node_map_fusion)
+        for param in module.parameters()
+    }
+    backbone_params = [param for param in model.parameters() if id(param) not in map_param_ids]
+    map_params = [param for param in model.parameters() if id(param) in map_param_ids]
+    return [
+        {'params': backbone_params, 'lr': LR},
+        {'params': map_params, 'lr': MAP_LR},
+    ]
+
+
+def load_optimizer_if_compatible(optimizer, state_dict, optimizer_name):
+    checkpoint_group_count = len(state_dict.get('param_groups', []))
+    current_group_count = len(optimizer.param_groups)
+    if checkpoint_group_count != current_group_count:
+        print(
+            f"Skipping {optimizer_name} optimizer state: checkpoint has "
+            f"{checkpoint_group_count} param group(s), current optimizer has "
+            f"{current_group_count}."
+        )
+        return False
+
+    optimizer.load_state_dict(state_dict)
+    return True
+
+
 def main():
     # use GPU/CPU for driver/worker
     device = torch.device('cuda') if USE_GPU_GLOBAL else torch.device('cpu')
@@ -140,10 +169,11 @@ def main():
                                 map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT).to(device)
     
     # initialize optimizers
-    global_policy_optimizer = optim.Adam(global_policy_net.parameters(), lr=LR)
-    global_q_net1_optimizer = optim.Adam(global_q_net1.parameters(), lr=LR)
-    global_q_net2_optimizer = optim.Adam(global_q_net2.parameters(), lr=LR)
+    global_policy_optimizer = optim.Adam(map_lr_param_groups(global_policy_net))
+    global_q_net1_optimizer = optim.Adam(map_lr_param_groups(global_q_net1))
+    global_q_net2_optimizer = optim.Adam(map_lr_param_groups(global_q_net2))
     log_alpha_optimizer = optim.Adam([log_alpha], lr=1e-4)
+    print(f"Optimizer LRs: backbone={LR}, map_encoder+fusion={MAP_LR}")
 
     # initialize decay (not use)
     policy_lr_decay = optim.lr_scheduler.StepLR(global_policy_optimizer, step_size=DECAY_STEP, gamma=0.96)
@@ -178,19 +208,28 @@ def main():
         # TX
         with torch.no_grad():
             log_alpha.copy_(checkpoint['log_alpha'].to(device))
-        global_policy_optimizer.load_state_dict(checkpoint['policy_optimizer'])
-        global_q_net1_optimizer.load_state_dict(checkpoint['q_net1_optimizer'])
-        global_q_net2_optimizer.load_state_dict(checkpoint['q_net2_optimizer'])
+        policy_optimizer_loaded = load_optimizer_if_compatible(
+            global_policy_optimizer, checkpoint['policy_optimizer'], 'policy'
+        )
+        q_net1_optimizer_loaded = load_optimizer_if_compatible(
+            global_q_net1_optimizer, checkpoint['q_net1_optimizer'], 'q_net1'
+        )
+        q_net2_optimizer_loaded = load_optimizer_if_compatible(
+            global_q_net2_optimizer, checkpoint['q_net2_optimizer'], 'q_net2'
+        )
         log_alpha_optimizer.load_state_dict(checkpoint['log_alpha_optimizer'])
-        policy_lr_decay.load_state_dict(checkpoint['policy_lr_decay'])
-        q_net1_lr_decay.load_state_dict(checkpoint['q_net1_lr_decay'])
-        q_net2_lr_decay.load_state_dict(checkpoint['q_net2_lr_decay'])
+        if policy_optimizer_loaded:
+            policy_lr_decay.load_state_dict(checkpoint['policy_lr_decay'])
+        if q_net1_optimizer_loaded:
+            q_net1_lr_decay.load_state_dict(checkpoint['q_net1_lr_decay'])
+        if q_net2_optimizer_loaded:
+            q_net2_lr_decay.load_state_dict(checkpoint['q_net2_lr_decay'])
         log_alpha_lr_decay.load_state_dict(checkpoint['log_alpha_lr_decay'])
         curr_episode = checkpoint['episode']
 
         print("curr_episode set to ", curr_episode)
         print(log_alpha)
-        print(global_policy_optimizer.state_dict()['param_groups'][0]['lr'])
+        print("policy optimizer lrs:", [group['lr'] for group in global_policy_optimizer.param_groups])
 
     global_target_q_net1.load_state_dict(global_q_net1.state_dict())
     global_target_q_net2.load_state_dict(global_q_net2.state_dict())
