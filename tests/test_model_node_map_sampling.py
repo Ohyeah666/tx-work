@@ -15,9 +15,9 @@ def make_model_inputs(batch_size=2, n_nodes=6, k_size=4, input_dim=4, map_size=3
     original_edge_padding_mask = edge_padding_mask.clone()
     edge_mask = torch.zeros(batch_size, n_nodes, n_nodes, dtype=torch.bool)
     edge_mask[:, :, -1] = True
-    map_inputs = torch.zeros(batch_size, 5, map_size, map_size, dtype=torch.uint8)
+    map_inputs = torch.zeros(batch_size, 2, map_size, map_size, dtype=torch.uint8)
     map_inputs[:, 0] = 255
-    map_inputs[:, 3, map_size // 2, map_size // 2] = 255
+    map_inputs[:, 1, map_size // 2, map_size // 2] = 255
     return (
         node_inputs,
         edge_inputs,
@@ -31,8 +31,8 @@ def make_model_inputs(batch_size=2, n_nodes=6, k_size=4, input_dim=4, map_size=3
 
 
 def test_spatial_map_encoder_outputs_spatial_feature_map():
-    encoder = SpatialMapEncoder(input_channels=5, feature_dim=64)
-    map_inputs = torch.zeros(2, 5, 120, 160, dtype=torch.uint8)
+    encoder = SpatialMapEncoder(input_channels=2, feature_dim=64)
+    map_inputs = torch.zeros(2, 2, 120, 160, dtype=torch.uint8)
 
     feature_map = encoder(map_inputs)
 
@@ -82,7 +82,7 @@ def test_policy_net_forward_returns_log_probs_and_diagnostics_without_mutating_m
     policy = PolicyNet(
         input_dim=4,
         embedding_dim=16,
-        map_input_channels=5,
+        map_input_channels=2,
         map_feature_dim=8,
         map_resolution=4,
         gate_bias_init=-2.0,
@@ -124,7 +124,7 @@ def test_q_net_forward_returns_action_values_and_diagnostics_without_mutating_ma
     q_net = QNet(
         input_dim=4,
         embedding_dim=16,
-        map_input_channels=5,
+        map_input_channels=2,
         map_feature_dim=8,
         map_resolution=4,
         gate_bias_init=-2.0,

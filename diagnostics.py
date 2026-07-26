@@ -19,8 +19,9 @@ def figure_to_rgb(fig):
 
 
 def semantic_map_image(map_inputs):
-    channel_titles = ["free", "obstacle", "unknown", "frontier", "position"]
-    fig, axes = plt.subplots(1, 5, figsize=(12, 2.4), constrained_layout=True)
+    # 诊断图保持与当前 2 通道地图输入一致，避免误读为旧的五通道版本。
+    channel_titles = ["unknown", "frontier_heatmap"]
+    fig, axes = plt.subplots(1, len(channel_titles), figsize=(5.2, 2.4), constrained_layout=True)
     for channel, axis, title in zip(map_inputs, axes, channel_titles):
         axis.imshow(channel, cmap="viridis", vmin=0, vmax=255)
         axis.set_title(title)
