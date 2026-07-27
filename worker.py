@@ -7,6 +7,7 @@ import torch
 from diagnostics import action_probability_overlay, node_feature_norm_overlay, semantic_map_image
 from env import Env
 from map_input import build_semantic_map_input
+from node_features import build_node_inputs
 from parameter import *
 from replay_schema import *
 
@@ -54,31 +55,44 @@ class Worker:
         node_utility = copy.deepcopy(self.env.node_utility)
         guidepost = copy.deepcopy(self.env.guidepost)
         map_inputs = self.build_map_inputs()
-
-        # normalize observations
-        node_coords = node_coords / 640
-        node_utility = node_utility / 50
-
-        # transfer to node inputs tensor
-        n_nodes = node_coords.shape[0]
-        node_utility_inputs = node_utility.reshape((n_nodes, 1))
-        node_inputs = np.concatenate((node_coords, node_utility_inputs, guidepost), axis=1)
-        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size+1, 3)
-
-        # padding the number of node to a given node padding size
-        assert node_coords.shape[0] < self.node_padding_size
-        padding = torch.nn.ZeroPad2d((0, 0, 0, self.node_padding_size - node_coords.shape[0]))
-        node_inputs = padding(node_inputs)
-
-        # calculate a mask to padded nodes
-        node_padding_mask = torch.zeros((1, 1, node_coords.shape[0]), dtype=torch.int64).to(self.device)
-        node_padding = torch.ones((1, 1, self.node_padding_size - node_coords.shape[0]), dtype=torch.int64).to(
-            self.device)
-        node_padding_mask = torch.cat((node_padding_mask, node_padding), dim=-1)
+        visit_count = None
 
         # get the node index of the current robot position
         current_node_index = self.env.find_index_from_coords(self.robot_position)
         current_index = torch.tensor([current_node_index]).unsqueeze(0).unsqueeze(0).to(self.device)  # (1,1,1)
+
+        graph_dist_to_current = None
+        reachable_nodes = None
+        if USE_NODE_GRAPH_DIST_TO_CURRENT or USE_NODE_UTILITY_OVER_DIST:
+            graph_dist_to_current, reachable_nodes = self.env.graph_generator.get_normalized_shortest_path_distances(
+                current_node_index)
+
+        # transfer to node inputs tensor
+        n_nodes = node_coords.shape[0]
+        node_inputs = build_node_inputs(
+            node_coords,
+            node_utility,
+            guidepost,
+            graph_dist_to_current,
+            reachable_nodes,
+            visit_count,
+            current_node_index,
+            use_graph_dist_to_current=USE_NODE_GRAPH_DIST_TO_CURRENT,
+            use_utility_over_dist=USE_NODE_UTILITY_OVER_DIST,
+            use_visit_count=USE_NODE_VISIT_COUNT,
+        )
+        node_inputs = torch.FloatTensor(node_inputs).unsqueeze(0).to(self.device)  # (1, node_padding_size, INPUT_DIM)
+
+        # padding the number of node to a given node padding size
+        assert n_nodes < self.node_padding_size
+        padding = torch.nn.ZeroPad2d((0, 0, 0, self.node_padding_size - n_nodes))
+        node_inputs = padding(node_inputs)
+
+        # calculate a mask to padded nodes
+        node_padding_mask = torch.zeros((1, 1, n_nodes), dtype=torch.int64).to(self.device)
+        node_padding = torch.ones((1, 1, self.node_padding_size - n_nodes), dtype=torch.int64).to(
+            self.device)
+        node_padding_mask = torch.cat((node_padding_mask, node_padding), dim=-1)
 
         # prepare the adjacent list as padded edge inputs and the adjacent matrix as the edge mask
         graph = list(graph.values())
@@ -96,7 +110,7 @@ class Worker:
             (0, self.node_padding_size - len(edge_inputs), 0, self.node_padding_size - len(edge_inputs)), 1)
         edge_mask = padding(edge_mask)
 
-        edge = edge_inputs[current_index]
+        edge = edge_inputs[current_node_index]
         while len(edge) < self.k_size:
             edge.append(0)
 

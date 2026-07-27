@@ -1,9 +1,10 @@
 import torch
 
 from model import NodeMapFeatureSampler, PolicyNet, QNet, SpatialMapEncoder
+from parameter import INPUT_DIM
 
 
-def make_model_inputs(batch_size=2, n_nodes=6, k_size=4, input_dim=4, map_size=32):
+def make_model_inputs(batch_size=2, n_nodes=6, k_size=4, input_dim=INPUT_DIM, map_size=32):
     torch.manual_seed(7)
     node_inputs = torch.rand(batch_size, n_nodes, input_dim)
     node_inputs[:, :, :2] = torch.rand(batch_size, n_nodes, 2)
@@ -80,7 +81,7 @@ def test_policy_net_forward_returns_log_probs_and_diagnostics_without_mutating_m
         map_inputs,
     ) = inputs
     policy = PolicyNet(
-        input_dim=4,
+        input_dim=INPUT_DIM,
         embedding_dim=16,
         map_input_channels=5,
         map_feature_dim=8,
@@ -122,7 +123,7 @@ def test_q_net_forward_returns_action_values_and_diagnostics_without_mutating_ma
         map_inputs,
     ) = inputs
     q_net = QNet(
-        input_dim=4,
+        input_dim=INPUT_DIM,
         embedding_dim=16,
         map_input_channels=5,
         map_feature_dim=8,

@@ -1,12 +1,16 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import copy
+import heapq
 
 from node import Node
 from graph import Graph, a_star
 
 
 class Graph_generator:
+    GRAPH_DISTANCE_NORMALIZER = 640
+    UNREACHABLE_GRAPH_DISTANCE = 2.0
+
     def __init__(self, map_size, k_size, sensor_range, plot=False):
         self.k_size = k_size
         self.graph = Graph()
@@ -231,5 +235,60 @@ class Graph_generator:
         route = list(map(str, route))
         return dist, route
 
+    def _undirected_adjacency(self):
+        n_nodes = self.node_coords.shape[0]
+        adjacency = [dict() for _ in range(n_nodes)]
 
+        for from_node, edges in self.graph.edges.items():
+            from_index = int(from_node)
+            if from_index < 0 or from_index >= n_nodes:
+                continue
+
+            for edge in edges.values():
+                to_index = int(edge.to_node)
+                if to_index < 0 or to_index >= n_nodes:
+                    continue
+
+                length = float(edge.length)
+                old_length = adjacency[from_index].get(to_index)
+                if old_length is None or length < old_length:
+                    adjacency[from_index][to_index] = length
+
+                old_reverse_length = adjacency[to_index].get(from_index)
+                if old_reverse_length is None or length < old_reverse_length:
+                    adjacency[to_index][from_index] = length
+
+        return [list(neighbors.items()) for neighbors in adjacency]
+
+    def shortest_distances_from(self, start_index):
+        n_nodes = self.node_coords.shape[0]
+        distances = np.full(n_nodes, np.inf, dtype=np.float64)
+        start_index = int(start_index)
+        if start_index < 0 or start_index >= n_nodes:
+            return distances
+
+        adjacency = self._undirected_adjacency()
+        distances[start_index] = 0.0
+        queue = [(0.0, start_index)]
+
+        while queue:
+            current_dist, current_index = heapq.heappop(queue)
+            if current_dist > distances[current_index]:
+                continue
+
+            for neighbor_index, edge_length in adjacency[current_index]:
+                next_dist = current_dist + edge_length
+                if next_dist < distances[neighbor_index]:
+                    distances[neighbor_index] = next_dist
+                    heapq.heappush(queue, (next_dist, neighbor_index))
+
+        return distances
+
+    def get_normalized_shortest_path_distances(self, start_index):
+        n_nodes = self.node_coords.shape[0]
+        distances = self.shortest_distances_from(start_index)
+        reachable = np.isfinite(distances)
+        normalized_distances = distances / self.GRAPH_DISTANCE_NORMALIZER
+        normalized_distances[~reachable] = self.UNREACHABLE_GRAPH_DISTANCE
+        return normalized_distances.reshape(n_nodes, 1), reachable.reshape(n_nodes, 1)
 

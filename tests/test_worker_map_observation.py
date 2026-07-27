@@ -6,12 +6,21 @@ import torch
 from replay_schema import BUFFER_SIZE, MAP_INPUTS, NEXT_MAP_INPUTS
 from test_worker import TestWorker
 from worker import Worker
+from node_features import NODE_INPUT_DIM, UTILITY_OVER_DIST_EPS
 
 
 class FakeEnv(SimpleNamespace):
     def find_index_from_coords(self, position):
         distances = np.linalg.norm(self.node_coords - position, axis=1)
         return int(np.argmin(distances))
+
+
+class FakeGraphGenerator:
+    def get_normalized_shortest_path_distances(self, start_index):
+        assert start_index == 0
+        distances = np.array([0, 4 / 640, 8 / 640], dtype=np.float32).reshape(3, 1)
+        reachable = np.array([True, True, True]).reshape(3, 1)
+        return distances, reachable
 
 
 def make_fake_env():
@@ -35,6 +44,7 @@ def make_fake_env():
         frontiers=np.array([[4, 4]], dtype=np.float32),
         robot_belief=np.zeros((12, 16), dtype=np.uint8),
         resolution=4,
+        graph_generator=FakeGraphGenerator(),
     )
 
 
@@ -59,7 +69,7 @@ def test_worker_observation_includes_semantic_map_and_replay_slots():
 
     assert len(observations) == 7
     node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
-    assert node_inputs.shape == (1, 6, 4)
+    assert node_inputs.shape == (1, 6, NODE_INPUT_DIM)
     assert edge_inputs.shape == (1, 1, 4)
     assert node_padding_mask.shape == (1, 1, 6)
     assert edge_padding_mask.shape == (1, 1, 4)
@@ -69,6 +79,12 @@ def test_worker_observation_includes_semantic_map_and_replay_slots():
     assert len(worker.episode_buffer) == BUFFER_SIZE
     assert len(worker.episode_buffer[MAP_INPUTS]) == 1
     assert len(worker.episode_buffer[NEXT_MAP_INPUTS]) == 1
+    assert node_inputs[0, 0, 4].item() == 0.0
+    np.testing.assert_allclose(
+        node_inputs[0, 1, 4].item(),
+        (3 / 50) / (4 / 640 + UTILITY_OVER_DIST_EPS),
+        rtol=1e-6,
+    )
 
 
 def test_test_worker_observation_matches_training_tuple_without_node_padding():
@@ -78,9 +94,14 @@ def test_test_worker_observation_matches_training_tuple_without_node_padding():
 
     assert len(observations) == 7
     node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
-    assert node_inputs.shape == (1, 3, 4)
+    assert node_inputs.shape == (1, 3, NODE_INPUT_DIM)
     assert edge_inputs.shape == (1, 1, 4)
     assert node_padding_mask is None
     assert edge_padding_mask.shape == (1, 1, 4)
     assert edge_mask.shape == (1, 3, 3)
     assert map_inputs.shape == (1, 5, 3, 4)
+    np.testing.assert_allclose(
+        node_inputs[0, 2, 4].item(),
+        (1 / 50) / (8 / 640 + UTILITY_OVER_DIST_EPS),
+        rtol=1e-6,
+    )
