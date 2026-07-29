@@ -20,7 +20,7 @@ USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
 FOLDER_NAME = 'cnn_map_inputs_uod'
-model_path = f'model/{FOLDER_NAME}'
+model_path = f'model/{FOLDER_NAME}/run_20260727_205700__elapsed_26h08m55s'
 
 
 TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'
