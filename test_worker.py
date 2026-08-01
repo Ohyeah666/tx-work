@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from action_features import build_edge_dist_action_inputs, build_padded_current_edge_inputs
 from env import Env
 from map_input import build_semantic_map_input
 from model import PolicyNet
@@ -134,31 +135,53 @@ class TestWorker:
         adjacent_matrix = self.calculate_edge_mask(edge_inputs)
         edge_mask = torch.from_numpy(adjacent_matrix).float().unsqueeze(0).to(self.device)
 
-        edge = edge_inputs[current_index]
-        while len(edge) < self.k_size:
-            edge.append(0)
+        edge, edge_padding = build_padded_current_edge_inputs(
+            self.env.graph,
+            current_node_index,
+            self.k_size,
+            PADDING_NODE_INDEX,
+        )
+        action_inputs = build_edge_dist_action_inputs(
+            self.env,
+            current_node_index,
+            edge,
+            edge_padding,
+            GRAPH_DISTANCE_NORMALIZER,
+            EDGE_DIST_MAX_NORM,
+            USE_ACTION_FEATURES,
+            USE_ACTION_FEATURE_EDGE_DIST,
+        )
 
         edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
+        edge_padding_mask = torch.tensor(edge_padding).unsqueeze(0).unsqueeze(0).to(self.device)
+        action_inputs = torch.tensor(action_inputs).unsqueeze(0).to(self.device)
 
-        edge_padding_mask = torch.zeros((1, 1, self.k_size), dtype=torch.int64).to(self.device)
-        one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
-        edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
-
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs
+        observations = (
+            node_inputs,
+            edge_inputs,
+            current_index,
+            node_padding_mask,
+            edge_padding_mask,
+            edge_mask,
+            map_inputs,
+            action_inputs,
+        )
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         with torch.no_grad():
             logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask,
-                                              edge_padding_mask, edge_mask, map_inputs)
+                                              edge_padding_mask, edge_mask, map_inputs, action_inputs=action_inputs)
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()
         else:
             action_index = torch.multinomial(logp_list.exp(), 1).long().squeeze(1)
 
-        next_node_index = edge_inputs[0, 0, action_index.item()]
+        next_node_index = int(edge_inputs[0, 0, action_index.item()].item())
+        if next_node_index == PADDING_NODE_INDEX:
+            raise ValueError("policy selected a padded edge")
         next_position = self.env.node_coords[next_node_index]
 
         return next_position, action_index

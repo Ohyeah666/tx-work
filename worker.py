@@ -4,6 +4,7 @@ import os
 import imageio
 import numpy as np
 import torch
+from action_features import build_edge_dist_action_inputs, build_padded_current_edge_inputs
 from diagnostics import action_probability_overlay, node_feature_norm_overlay, semantic_map_image
 from env import Env
 from map_input import build_semantic_map_input
@@ -96,38 +97,59 @@ class Worker:
             (0, self.node_padding_size - len(edge_inputs), 0, self.node_padding_size - len(edge_inputs)), 1)
         edge_mask = padding(edge_mask)
 
-        edge = edge_inputs[current_index]
-        while len(edge) < self.k_size:
-            edge.append(0)
+        edge, edge_padding = build_padded_current_edge_inputs(
+            self.env.graph,
+            current_node_index,
+            self.k_size,
+            PADDING_NODE_INDEX,
+        )
+        action_inputs = build_edge_dist_action_inputs(
+            self.env,
+            current_node_index,
+            edge,
+            edge_padding,
+            GRAPH_DISTANCE_NORMALIZER,
+            EDGE_DIST_MAX_NORM,
+            USE_ACTION_FEATURES,
+            USE_ACTION_FEATURE_EDGE_DIST,
+        )
 
         edge_inputs = torch.tensor(edge).unsqueeze(0).unsqueeze(0).to(self.device)  # (1, 1, k_size)
+        edge_padding_mask = torch.tensor(edge_padding).unsqueeze(0).unsqueeze(0).to(self.device)
+        action_inputs = torch.tensor(action_inputs).unsqueeze(0).to(self.device)
 
-        # calculate a mask for the padded edges (denoted by 0)
-        edge_padding_mask = torch.zeros((1, 1, self.k_size), dtype=torch.int64).to(self.device)
-        one = torch.ones_like(edge_padding_mask, dtype=torch.int64).to(self.device)
-        edge_padding_mask = torch.where(edge_inputs == 0, one, edge_padding_mask)
-
-        observations = node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs
+        observations = (
+            node_inputs,
+            edge_inputs,
+            current_index,
+            node_padding_mask,
+            edge_padding_mask,
+            edge_mask,
+            map_inputs,
+            action_inputs,
+        )
         return observations
 
     def select_node(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         with torch.no_grad():
             logp_list = self.local_policy_net(node_inputs, edge_inputs, current_index, node_padding_mask,
-                                              edge_padding_mask, edge_mask, map_inputs)
+                                              edge_padding_mask, edge_mask, map_inputs, action_inputs=action_inputs)
 
         if self.greedy:
             action_index = torch.argmax(logp_list, dim=1).long()
         else:
             action_index = torch.multinomial(logp_list.exp(), 1).long().squeeze(1)
 
-        next_node_index = edge_inputs[0, 0, action_index.item()]
+        next_node_index = int(edge_inputs[0, 0, action_index.item()].item())
+        if next_node_index == PADDING_NODE_INDEX:
+            raise ValueError("policy selected a padded edge")
         next_position = self.env.node_coords[next_node_index]
 
         return next_position, action_index
 
     def build_diagnostic_images(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         with torch.no_grad():
             logp_list, diagnostics = self.local_policy_net(
                 node_inputs,
@@ -137,6 +159,7 @@ class Worker:
                 edge_padding_mask,
                 edge_mask,
                 map_inputs,
+                action_inputs=action_inputs,
                 return_diagnostics=True,
             )
 
@@ -167,7 +190,7 @@ class Worker:
         }
 
     def save_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         self.episode_buffer[NODE_INPUTS] += copy.deepcopy(node_inputs)
         self.episode_buffer[EDGE_INPUTS] += copy.deepcopy(edge_inputs)
         self.episode_buffer[CURRENT_INDEX] += copy.deepcopy(current_index)
@@ -175,6 +198,7 @@ class Worker:
         self.episode_buffer[EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
         self.episode_buffer[EDGE_MASK] += copy.deepcopy(edge_mask).bool()
         self.episode_buffer[MAP_INPUTS] += copy.deepcopy(map_inputs)
+        self.episode_buffer[ACTION_INPUTS] += copy.deepcopy(action_inputs)
 
     def save_action(self, action_index):
         self.episode_buffer[ACTION] += action_index.unsqueeze(0).unsqueeze(0)
@@ -184,7 +208,7 @@ class Worker:
         self.episode_buffer[DONE] += copy.deepcopy(torch.tensor([[[(int(done))]]]).to(self.device))
 
     def save_next_observations(self, observations):
-        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+        node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         self.episode_buffer[NEXT_NODE_INPUTS] += copy.deepcopy(node_inputs)
         self.episode_buffer[NEXT_EDGE_INPUTS] += copy.deepcopy(edge_inputs)
         self.episode_buffer[NEXT_CURRENT_INDEX] += copy.deepcopy(current_index)
@@ -192,6 +216,7 @@ class Worker:
         self.episode_buffer[NEXT_EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
         self.episode_buffer[NEXT_EDGE_MASK] += copy.deepcopy(edge_mask).bool()
         self.episode_buffer[NEXT_MAP_INPUTS] += copy.deepcopy(map_inputs)
+        self.episode_buffer[NEXT_ACTION_INPUTS] += copy.deepcopy(action_inputs)
 
     def run_episode(self, curr_episode):
         done = False

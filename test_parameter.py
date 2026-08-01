@@ -5,12 +5,18 @@ MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
 MAP_GATE_BIAS_INIT = -2.0
 DIAGNOSTIC_IMG_GAP = 200
+USE_ACTION_FEATURES = True
+USE_ACTION_FEATURE_EDGE_DIST = True
+ACTION_FEATURE_DIM = int(USE_ACTION_FEATURES) * int(USE_ACTION_FEATURE_EDGE_DIST)
+GRAPH_DISTANCE_NORMALIZER = 640
+EDGE_DIST_MAX_NORM = 2.0
+PADDING_NODE_INDEX = -1
 K_SIZE = 20  # the number of neighbors
 
 USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
-FOLDER_NAME = 'cnn_map_inputs'
+FOLDER_NAME = 'cnn_edge_dist'
 model_path = f'model/{FOLDER_NAME}/run_20260713_110340__elapsed_34h16m58s'
 
 

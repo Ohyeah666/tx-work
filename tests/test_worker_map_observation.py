@@ -3,7 +3,8 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-from replay_schema import BUFFER_SIZE, MAP_INPUTS, NEXT_MAP_INPUTS
+from parameter import ACTION_FEATURE_DIM, PADDING_NODE_INDEX
+from replay_schema import ACTION_INPUTS, BUFFER_SIZE, MAP_INPUTS, NEXT_ACTION_INPUTS, NEXT_MAP_INPUTS
 from test_worker import TestWorker
 from worker import Worker
 
@@ -57,18 +58,27 @@ def test_worker_observation_includes_semantic_map_and_replay_slots():
     worker.save_observations(observations)
     worker.save_next_observations(observations)
 
-    assert len(observations) == 7
-    node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+    assert len(observations) == 8
+    node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
     assert node_inputs.shape == (1, 6, 4)
     assert edge_inputs.shape == (1, 1, 4)
+    assert edge_inputs.tolist() == [[[0, 1, 2, PADDING_NODE_INDEX]]]
     assert node_padding_mask.shape == (1, 1, 6)
     assert edge_padding_mask.shape == (1, 1, 4)
+    assert edge_padding_mask.tolist() == [[[0, 0, 0, 1]]]
     assert edge_mask.shape == (1, 6, 6)
     assert map_inputs.shape == (1, 5, 3, 4)
     assert map_inputs.dtype == torch.uint8
+    assert action_inputs.shape == (1, 4, ACTION_FEATURE_DIM)
+    torch.testing.assert_close(
+        action_inputs[0, :, 0],
+        torch.tensor([0.0, 4.0 / 640.0, 8.0 / 640.0, 0.0]),
+    )
     assert len(worker.episode_buffer) == BUFFER_SIZE
     assert len(worker.episode_buffer[MAP_INPUTS]) == 1
     assert len(worker.episode_buffer[NEXT_MAP_INPUTS]) == 1
+    assert len(worker.episode_buffer[ACTION_INPUTS]) == 1
+    assert len(worker.episode_buffer[NEXT_ACTION_INPUTS]) == 1
 
 
 def test_test_worker_observation_matches_training_tuple_without_node_padding():
@@ -76,11 +86,13 @@ def test_test_worker_observation_matches_training_tuple_without_node_padding():
 
     observations = test_worker.get_observations()
 
-    assert len(observations) == 7
-    node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs = observations
+    assert len(observations) == 8
+    node_inputs, edge_inputs, _, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
     assert node_inputs.shape == (1, 3, 4)
     assert edge_inputs.shape == (1, 1, 4)
+    assert edge_inputs.tolist() == [[[0, 1, 2, PADDING_NODE_INDEX]]]
     assert node_padding_mask is None
     assert edge_padding_mask.shape == (1, 1, 4)
     assert edge_mask.shape == (1, 3, 3)
     assert map_inputs.shape == (1, 5, 3, 4)
+    assert action_inputs.shape == (1, 4, ACTION_FEATURE_DIM)

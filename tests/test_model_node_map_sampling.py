@@ -7,11 +7,11 @@ def make_model_inputs(batch_size=2, n_nodes=6, k_size=4, input_dim=4, map_size=3
     torch.manual_seed(7)
     node_inputs = torch.rand(batch_size, n_nodes, input_dim)
     node_inputs[:, :, :2] = torch.rand(batch_size, n_nodes, 2)
-    edge_inputs = torch.tensor([[[0, 1, 2, 0]], [[0, 2, 3, 0]]], dtype=torch.long)
+    edge_inputs = torch.tensor([[[0, 1, 2, -1]], [[0, 2, 3, -1]]], dtype=torch.long)
     current_index = torch.zeros(batch_size, 1, 1, dtype=torch.long)
     node_padding_mask = torch.zeros(batch_size, 1, n_nodes, dtype=torch.bool)
     node_padding_mask[:, :, -1] = True
-    edge_padding_mask = edge_inputs.eq(0)
+    edge_padding_mask = edge_inputs.eq(-1)
     original_edge_padding_mask = edge_padding_mask.clone()
     edge_mask = torch.zeros(batch_size, n_nodes, n_nodes, dtype=torch.bool)
     edge_mask[:, :, -1] = True
@@ -101,6 +101,8 @@ def test_policy_net_forward_returns_log_probs_and_diagnostics_without_mutating_m
 
     assert logp.shape == (2, 4)
     assert torch.isfinite(logp).all()
+    assert torch.all(logp[:, 0] < -1e7)
+    assert torch.all(logp[:, 3] < -1e7)
     torch.testing.assert_close(logp.exp().sum(dim=-1), torch.ones(2))
     torch.testing.assert_close(edge_padding_mask, original_edge_padding_mask)
     assert diagnostics["node_map_feature_norm"].shape == (2, 6)
@@ -146,4 +148,105 @@ def test_q_net_forward_returns_action_values_and_diagnostics_without_mutating_ma
     assert torch.isfinite(q_values).all()
     torch.testing.assert_close(edge_padding_mask, original_edge_padding_mask)
     torch.testing.assert_close(q_values[:, 0], torch.zeros_like(q_values[:, 0]))
+    torch.testing.assert_close(q_values[:, 3], torch.zeros_like(q_values[:, 3]))
+    assert diagnostics["node_map_feature_norm"].shape == (2, 6)
+
+
+def test_policy_net_consumes_action_inputs_while_preserving_map_diagnostics():
+    inputs = make_model_inputs()
+    (
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        original_edge_padding_mask,
+        edge_mask,
+        map_inputs,
+    ) = inputs
+    action_inputs = torch.tensor(
+        [
+            [[0.0], [0.1], [0.2], [0.0]],
+            [[0.0], [0.3], [0.4], [0.0]],
+        ],
+        dtype=torch.float32,
+    )
+    policy = PolicyNet(
+        input_dim=4,
+        embedding_dim=16,
+        map_input_channels=5,
+        map_feature_dim=8,
+        map_resolution=4,
+        gate_bias_init=-2.0,
+        action_input_dim=1,
+    )
+
+    logp, diagnostics = policy(
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        edge_mask,
+        map_inputs,
+        action_inputs=action_inputs,
+        return_diagnostics=True,
+    )
+
+    assert logp.shape == (2, 4)
+    assert torch.isfinite(logp).all()
+    assert torch.all(logp[:, 0] < -1e7)
+    assert torch.all(logp[:, 3] < -1e7)
+    torch.testing.assert_close(logp.exp().sum(dim=-1), torch.ones(2))
+    torch.testing.assert_close(edge_padding_mask, original_edge_padding_mask)
+    assert diagnostics["node_map_feature_norm"].shape == (2, 6)
+
+
+def test_q_net_consumes_action_inputs_while_preserving_map_diagnostics():
+    inputs = make_model_inputs()
+    (
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        original_edge_padding_mask,
+        edge_mask,
+        map_inputs,
+    ) = inputs
+    action_inputs = torch.tensor(
+        [
+            [[0.0], [0.1], [0.2], [0.0]],
+            [[0.0], [0.3], [0.4], [0.0]],
+        ],
+        dtype=torch.float32,
+    )
+    q_net = QNet(
+        input_dim=4,
+        embedding_dim=16,
+        map_input_channels=5,
+        map_feature_dim=8,
+        map_resolution=4,
+        gate_bias_init=-2.0,
+        action_input_dim=1,
+    )
+
+    q_values, attention_weights, diagnostics = q_net(
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        edge_mask,
+        map_inputs,
+        action_inputs=action_inputs,
+        return_diagnostics=True,
+    )
+
+    assert q_values.shape == (2, 4, 1)
+    assert attention_weights is not None
+    assert torch.isfinite(q_values).all()
+    torch.testing.assert_close(edge_padding_mask, original_edge_padding_mask)
+    torch.testing.assert_close(q_values[:, 0], torch.zeros_like(q_values[:, 0]))
+    torch.testing.assert_close(q_values[:, 3], torch.zeros_like(q_values[:, 3]))
     assert diagnostics["node_map_feature_norm"].shape == (2, 6)

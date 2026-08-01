@@ -8,6 +8,13 @@ MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
 MAP_GATE_BIAS_INIT = -2.0       # -2.0 时初始 gate 约 sigmoid(-2)=0.119。-2.0/-1.5/-1.0
 DIAGNOSTIC_IMG_GAP = 200
+# 关于 edge_dist 的参数
+USE_ACTION_FEATURES = True
+USE_ACTION_FEATURE_EDGE_DIST = True  # edge_dist_norm_j
+ACTION_FEATURE_DIM = int(USE_ACTION_FEATURES) * int(USE_ACTION_FEATURE_EDGE_DIST)
+GRAPH_DISTANCE_NORMALIZER = 640
+EDGE_DIST_MAX_NORM = 2.0
+PADDING_NODE_INDEX = -1
 
 NODE_PADDING_SIZE = 360  # the number of nodes will be padded to this value
 K_SIZE = 20  # the number of neighboring nodes
@@ -21,7 +28,7 @@ MAP_LR = 1e-5           # map_inputs 分支的学习率
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'cnn_map_inputs_1.5_LR3'
+FOLDER_NAME = 'cnn_edge_dist'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
