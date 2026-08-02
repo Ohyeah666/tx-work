@@ -250,3 +250,69 @@ def test_q_net_consumes_action_inputs_while_preserving_map_diagnostics():
     torch.testing.assert_close(q_values[:, 0], torch.zeros_like(q_values[:, 0]))
     torch.testing.assert_close(q_values[:, 3], torch.zeros_like(q_values[:, 3]))
     assert diagnostics["node_map_feature_norm"].shape == (2, 6)
+
+
+def test_policy_and_q_net_can_run_only_edge_dist_without_map_inputs():
+    (
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        original_edge_padding_mask,
+        edge_mask,
+        _,
+    ) = make_model_inputs()
+    action_inputs = torch.tensor(
+        [
+            [[0.0], [0.1], [0.2], [0.0]],
+            [[0.0], [0.3], [0.4], [0.0]],
+        ],
+        dtype=torch.float32,
+    )
+    policy = PolicyNet(
+        input_dim=4,
+        embedding_dim=16,
+        action_input_dim=1,
+        use_map_inputs=False,
+    )
+    q_net = QNet(
+        input_dim=4,
+        embedding_dim=16,
+        action_input_dim=1,
+        use_map_inputs=False,
+    )
+
+    logp, policy_diagnostics = policy(
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        edge_mask,
+        None,
+        action_inputs=action_inputs,
+        return_diagnostics=True,
+    )
+    q_values, attention_weights, q_diagnostics = q_net(
+        node_inputs,
+        edge_inputs,
+        current_index,
+        node_padding_mask,
+        edge_padding_mask,
+        edge_mask,
+        None,
+        action_inputs=action_inputs,
+        return_diagnostics=True,
+    )
+
+    assert policy.map_encoder is None
+    assert q_net.map_encoder is None
+    assert policy_diagnostics == {}
+    assert q_diagnostics == {}
+    assert logp.shape == (2, 4)
+    assert q_values.shape == (2, 4, 1)
+    assert attention_weights is not None
+    assert torch.isfinite(logp).all()
+    assert torch.isfinite(q_values).all()
+    torch.testing.assert_close(edge_padding_mask, original_edge_padding_mask)

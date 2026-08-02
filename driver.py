@@ -40,10 +40,13 @@ TENSORBOARD_METRIC_TAGS = [
     'Perf/Travel Distance',
     'Perf/Success Rate',
     'Perf/Explored Rate',
-    'Map/Feature Std',
-    'Fusion/Gate Mean',
-    'Fusion/Gate Std',
 ]
+if USE_MAP_INPUTS:
+    TENSORBOARD_METRIC_TAGS += [
+        'Map/Feature Std',
+        'Fusion/Gate Mean',
+        'Fusion/Gate Std',
+    ]
 
 
 def init_wandb(run_name):
@@ -120,11 +123,22 @@ def finalize_model_run_dir(model_run_dir, training_start_time):
 
 
 def map_lr_param_groups(model):
+    if not USE_MAP_INPUTS:
+        return [{'params': list(model.parameters()), 'lr': LR}]
+
+    map_modules = [
+        module
+        for module in (getattr(model, 'map_encoder', None), getattr(model, 'node_map_fusion', None))
+        if module is not None
+    ]
     map_param_ids = {
         id(param)
-        for module in (model.map_encoder, model.node_map_fusion)
+        for module in map_modules
         for param in module.parameters()
     }
+    if not map_param_ids:
+        return [{'params': list(model.parameters()), 'lr': LR}]
+
     backbone_params = [param for param in model.parameters() if id(param) not in map_param_ids]
     map_params = [param for param in model.parameters() if id(param) in map_param_ids]
     return [
@@ -156,29 +170,37 @@ def main():
     # initialize neural networks
     global_policy_net = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                                   map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                                  action_input_dim=ACTION_FEATURE_DIM).to(device)
+                                  action_input_dim=ACTION_FEATURE_DIM,
+                                  use_map_inputs=USE_MAP_INPUTS).to(device)
     global_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                          map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                         action_input_dim=ACTION_FEATURE_DIM).to(device)
+                         action_input_dim=ACTION_FEATURE_DIM,
+                         use_map_inputs=USE_MAP_INPUTS).to(device)
     global_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                          map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                         action_input_dim=ACTION_FEATURE_DIM).to(device)
+                         action_input_dim=ACTION_FEATURE_DIM,
+                         use_map_inputs=USE_MAP_INPUTS).to(device)
     log_alpha = torch.FloatTensor([-2]).to(device)  # not trainable when loaded from checkpoint, manually tune it for now
     log_alpha.requires_grad = True
 
     global_target_q_net1 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                                 map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                                action_input_dim=ACTION_FEATURE_DIM).to(device)
+                                action_input_dim=ACTION_FEATURE_DIM,
+                                use_map_inputs=USE_MAP_INPUTS).to(device)
     global_target_q_net2 = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                                 map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                                action_input_dim=ACTION_FEATURE_DIM).to(device)
+                                action_input_dim=ACTION_FEATURE_DIM,
+                                use_map_inputs=USE_MAP_INPUTS).to(device)
     
     # initialize optimizers
     global_policy_optimizer = optim.Adam(map_lr_param_groups(global_policy_net))
     global_q_net1_optimizer = optim.Adam(map_lr_param_groups(global_q_net1))
     global_q_net2_optimizer = optim.Adam(map_lr_param_groups(global_q_net2))
     log_alpha_optimizer = optim.Adam([log_alpha], lr=1e-4)
-    print(f"Optimizer LRs: backbone={LR}, map_encoder+fusion={MAP_LR}")
+    if USE_MAP_INPUTS:
+        print(f"Optimizer LRs: backbone={LR}, map_encoder+fusion={MAP_LR}")
+    else:
+        print(f"Optimizer LR: only_edge_dist={LR}; map_inputs disabled")
 
     # initialize decay (not use)
     policy_lr_decay = optim.lr_scheduler.StepLR(global_policy_optimizer, step_size=DECAY_STEP, gamma=0.96)
@@ -301,11 +323,19 @@ def main():
                     perf_metrics[n].append(metrics[n])
                 diagnostic_images = metrics.get('diagnostic_images')
                 if diagnostic_images is not None and wandb_run is not None and wandb is not None:
-                    wandb_run.log({
-                        'Diagnostics/Semantic Map': wandb.Image(diagnostic_images['semantic_map']),
-                        'Diagnostics/Node Map Feature Norm': wandb.Image(diagnostic_images['node_map_feature_norm']),
-                        'Diagnostics/Action Probability': wandb.Image(diagnostic_images['action_probability']),
-                    }, step=curr_episode)
+                    diagnostic_log = {}
+                    if 'semantic_map' in diagnostic_images:
+                        diagnostic_log['Diagnostics/Semantic Map'] = wandb.Image(diagnostic_images['semantic_map'])
+                    if 'node_map_feature_norm' in diagnostic_images:
+                        diagnostic_log['Diagnostics/Node Map Feature Norm'] = wandb.Image(
+                            diagnostic_images['node_map_feature_norm']
+                        )
+                    if 'action_probability' in diagnostic_images:
+                        diagnostic_log['Diagnostics/Action Probability'] = wandb.Image(
+                            diagnostic_images['action_probability']
+                        )
+                    if diagnostic_log:
+                        wandb_run.log(diagnostic_log, step=curr_episode)
 
             # launch new task
             if curr_episode < TOTAL_TRAIN_EPISODE:
@@ -338,7 +368,7 @@ def main():
                     node_padding_mask_batch = torch.stack(rollouts[NODE_PADDING_MASK]).to(device)
                     edge_padding_mask_batch = torch.stack(rollouts[EDGE_PADDING_MASK]).to(device)
                     edge_mask_batch = torch.stack(rollouts[EDGE_MASK]).to(device)
-                    map_inputs_batch = torch.stack(rollouts[MAP_INPUTS]).to(device)
+                    map_inputs_batch = torch.stack(rollouts[MAP_INPUTS]).to(device) if USE_MAP_INPUTS else None
                     action_inputs_batch = torch.stack(rollouts[ACTION_INPUTS]).to(device)
                     action_batch = torch.stack(rollouts[ACTION]).to(device)
                     reward_batch = torch.stack(rollouts[REWARD]).to(device)
@@ -349,7 +379,7 @@ def main():
                     next_node_padding_mask_batch = torch.stack(rollouts[NEXT_NODE_PADDING_MASK]).to(device)
                     next_edge_padding_mask_batch = torch.stack(rollouts[NEXT_EDGE_PADDING_MASK]).to(device)
                     next_edge_mask_batch = torch.stack(rollouts[NEXT_EDGE_MASK]).to(device)
-                    next_map_inputs_batch = torch.stack(rollouts[NEXT_MAP_INPUTS]).to(device)
+                    next_map_inputs_batch = torch.stack(rollouts[NEXT_MAP_INPUTS]).to(device) if USE_MAP_INPUTS else None
                     next_action_inputs_batch = torch.stack(rollouts[NEXT_ACTION_INPUTS]).to(device)
 
                     # SAC
@@ -414,10 +444,13 @@ def main():
                     perf_data.append(np.nanmean(perf_metrics[n]))
                 data = [reward_batch.mean().item(), value_prime_batch.mean().item(), policy_loss.item(), q1_loss.item(),
                         entropy.mean().item(), policy_grad_norm.item(), q_grad_norm.item(), log_alpha.item(), alpha_loss.item(),
-                        *perf_data,
+                        *perf_data]
+                if USE_MAP_INPUTS:
+                    data += [
                         policy_diagnostics['map_feature_std'].mean().item(),
                         policy_diagnostics['fusion_gate_mean'].mean().item(),
-                        policy_diagnostics['fusion_gate_std'].mean().item()]
+                        policy_diagnostics['fusion_gate_std'].mean().item(),
+                    ]
                 training_data.append(data)
 
             # write record to tensorboard

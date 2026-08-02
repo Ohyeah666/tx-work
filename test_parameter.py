@@ -1,5 +1,6 @@
 INPUT_DIM = 4
 EMBEDDING_DIM = 128
+USE_MAP_INPUTS = False
 MAP_INPUT_CHANNELS = 5
 MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
@@ -16,8 +17,8 @@ K_SIZE = 20  # the number of neighbors
 USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
-FOLDER_NAME = 'cnn_edge_dist'
-model_path = f'model/{FOLDER_NAME}/run_20260801_091058__elapsed_26h11m00s'
+FOLDER_NAME = 'only_edge_dist'
+model_path = f'model/{FOLDER_NAME}'
 
 
 TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'

@@ -5,11 +5,14 @@ import imageio
 import numpy as np
 import torch
 from action_features import build_edge_dist_action_inputs, build_padded_current_edge_inputs
-from diagnostics import action_probability_overlay, node_feature_norm_overlay, semantic_map_image
+from diagnostics import action_probability_overlay
 from env import Env
-from map_input import build_semantic_map_input
 from parameter import *
 from replay_schema import *
+
+if USE_MAP_INPUTS:
+    from diagnostics import node_feature_norm_overlay, semantic_map_image
+    from map_input import build_semantic_map_input
 
 
 class Worker:
@@ -39,6 +42,8 @@ class Worker:
             self.episode_buffer.append([])
 
     def build_map_inputs(self):
+        if not USE_MAP_INPUTS:
+            return None
         map_inputs = build_semantic_map_input(
             self.env.downsampled_belief,
             self.env.frontiers,
@@ -151,20 +156,31 @@ class Worker:
     def build_diagnostic_images(self, observations):
         node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
         with torch.no_grad():
-            logp_list, diagnostics = self.local_policy_net(
-                node_inputs,
-                edge_inputs,
-                current_index,
-                node_padding_mask,
-                edge_padding_mask,
-                edge_mask,
-                map_inputs,
-                action_inputs=action_inputs,
-                return_diagnostics=True,
-            )
+            if USE_MAP_INPUTS:
+                logp_list, diagnostics = self.local_policy_net(
+                    node_inputs,
+                    edge_inputs,
+                    current_index,
+                    node_padding_mask,
+                    edge_padding_mask,
+                    edge_mask,
+                    map_inputs,
+                    action_inputs=action_inputs,
+                    return_diagnostics=True,
+                )
+            else:
+                logp_list = self.local_policy_net(
+                    node_inputs,
+                    edge_inputs,
+                    current_index,
+                    node_padding_mask,
+                    edge_padding_mask,
+                    edge_mask,
+                    map_inputs,
+                    action_inputs=action_inputs,
+                )
 
         n_nodes = self.env.node_coords.shape[0]
-        node_feature_norm = diagnostics["node_map_feature_norm"][0, :n_nodes].detach().cpu().numpy()
         action_probs = logp_list.exp()[0].detach().cpu().numpy()
         edge_indices = edge_inputs[0, 0].detach().cpu().numpy()
         edge_valid = ~edge_padding_mask[0, 0].detach().cpu().numpy().astype(bool)
@@ -172,14 +188,7 @@ class Worker:
         action_probs = action_probs[edge_valid]
         current_node_index = int(current_index.item())
 
-        map_array = map_inputs[0].detach().cpu().numpy()
-        return {
-            "semantic_map": semantic_map_image(map_array),
-            "node_map_feature_norm": node_feature_norm_overlay(
-                self.env.robot_belief,
-                self.env.node_coords,
-                node_feature_norm,
-            ),
+        images = {
             "action_probability": action_probability_overlay(
                 self.env.robot_belief,
                 self.env.node_coords,
@@ -188,6 +197,18 @@ class Worker:
                 action_probs,
             ),
         }
+        if USE_MAP_INPUTS:
+            node_feature_norm = diagnostics["node_map_feature_norm"][0, :n_nodes].detach().cpu().numpy()
+            map_array = map_inputs[0].detach().cpu().numpy()
+            images.update({
+                "semantic_map": semantic_map_image(map_array),
+                "node_map_feature_norm": node_feature_norm_overlay(
+                    self.env.robot_belief,
+                    self.env.node_coords,
+                    node_feature_norm,
+                ),
+            })
+        return images
 
     def save_observations(self, observations):
         node_inputs, edge_inputs, current_index, node_padding_mask, edge_padding_mask, edge_mask, map_inputs, action_inputs = observations
@@ -197,7 +218,10 @@ class Worker:
         self.episode_buffer[NODE_PADDING_MASK] += copy.deepcopy(node_padding_mask).bool()
         self.episode_buffer[EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
         self.episode_buffer[EDGE_MASK] += copy.deepcopy(edge_mask).bool()
-        self.episode_buffer[MAP_INPUTS] += copy.deepcopy(map_inputs)
+        if USE_MAP_INPUTS:
+            self.episode_buffer[MAP_INPUTS] += copy.deepcopy(map_inputs)
+        else:
+            self.episode_buffer[MAP_INPUTS].append(None)
         self.episode_buffer[ACTION_INPUTS] += copy.deepcopy(action_inputs)
 
     def save_action(self, action_index):
@@ -215,7 +239,10 @@ class Worker:
         self.episode_buffer[NEXT_NODE_PADDING_MASK] += copy.deepcopy(node_padding_mask).bool()
         self.episode_buffer[NEXT_EDGE_PADDING_MASK] += copy.deepcopy(edge_padding_mask).bool()
         self.episode_buffer[NEXT_EDGE_MASK] += copy.deepcopy(edge_mask).bool()
-        self.episode_buffer[NEXT_MAP_INPUTS] += copy.deepcopy(map_inputs)
+        if USE_MAP_INPUTS:
+            self.episode_buffer[NEXT_MAP_INPUTS] += copy.deepcopy(map_inputs)
+        else:
+            self.episode_buffer[NEXT_MAP_INPUTS].append(None)
         self.episode_buffer[NEXT_ACTION_INPUTS] += copy.deepcopy(action_inputs)
 
     def run_episode(self, curr_episode):

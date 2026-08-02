@@ -298,17 +298,23 @@ class NodeMapFusion(nn.Module):
 
 class PolicyNet(nn.Module):
     def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
-                 gate_bias_init=-2.0, action_input_dim=0):
+                 gate_bias_init=-2.0, action_input_dim=0, use_map_inputs=True):
         super(PolicyNet, self).__init__()
         self.action_input_dim = action_input_dim
+        self.use_map_inputs = use_map_inputs
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         self.current_embedding = nn.Linear(embedding_dim * 2, embedding_dim)
         if self.action_input_dim > 0:
             self.action_input_embedding = nn.Linear(action_input_dim, embedding_dim)
             self.neighbor_action_fusion = nn.Linear(embedding_dim * 2, embedding_dim)
-        self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
-        self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
-        self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
+        if self.use_map_inputs:
+            self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
+            self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
+            self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
+        else:
+            self.map_encoder = None
+            self.node_map_sampler = None
+            self.node_map_fusion = None
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
@@ -316,24 +322,26 @@ class PolicyNet(nn.Module):
 
     def encode_graph(self, node_inputs, node_padding_mask, edge_mask, map_inputs=None):
         node_feature = self.initial_embedding(node_inputs)
-        map_feature_map = self.map_encoder(map_inputs)
-        map_height, map_width = map_inputs.shape[-2:]
-        node_map_features = self.node_map_sampler(
-            map_feature_map,
-            node_inputs,
-            map_height,
-            map_width,
-            node_padding_mask,
-        )
-        node_feature, gate = self.node_map_fusion(node_feature, node_map_features)
+        diagnostics = {}
+        if self.use_map_inputs:
+            map_feature_map = self.map_encoder(map_inputs)
+            map_height, map_width = map_inputs.shape[-2:]
+            node_map_features = self.node_map_sampler(
+                map_feature_map,
+                node_inputs,
+                map_height,
+                map_width,
+                node_padding_mask,
+            )
+            node_feature, gate = self.node_map_fusion(node_feature, node_map_features)
+            diagnostics = {
+                "map_feature_std": node_map_features.std(unbiased=False).detach(),
+                "fusion_gate_mean": gate.mean().detach(),
+                "fusion_gate_std": gate.std(unbiased=False).detach(),
+                "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
+            }
         enhanced_node_feature = self.encoder(src=node_feature, key_padding_mask=node_padding_mask, attn_mask=edge_mask)
 
-        diagnostics = {
-            "map_feature_std": node_map_features.std(unbiased=False).detach(),
-            "fusion_gate_mean": gate.mean().detach(),
-            "fusion_gate_std": gate.std(unbiased=False).detach(),
-            "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
-        }
         return enhanced_node_feature, diagnostics
 
     def _validate_action_inputs(self, action_inputs, edge_inputs):
@@ -399,18 +407,24 @@ class PolicyNet(nn.Module):
 
 class QNet(nn.Module):
     def __init__(self, input_dim, embedding_dim, map_input_channels=5, map_feature_dim=64, map_resolution=4,
-                 gate_bias_init=-2.0, action_input_dim=0):
+                 gate_bias_init=-2.0, action_input_dim=0, use_map_inputs=True):
         super(QNet, self).__init__()
         self.action_input_dim = action_input_dim
+        self.use_map_inputs = use_map_inputs
         self.initial_embedding = nn.Linear(input_dim, embedding_dim) # layer for non-end position
         if self.action_input_dim > 0:
             self.action_input_embedding = nn.Linear(action_input_dim, embedding_dim)
             self.action_embedding = nn.Linear(embedding_dim * 4, embedding_dim)
         else:
             self.action_embedding = nn.Linear(embedding_dim * 3, embedding_dim)
-        self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
-        self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
-        self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
+        if self.use_map_inputs:
+            self.map_encoder = SpatialMapEncoder(map_input_channels, map_feature_dim)
+            self.node_map_sampler = NodeMapFeatureSampler(map_resolution=map_resolution)
+            self.node_map_fusion = NodeMapFusion(embedding_dim, map_feature_dim, gate_bias_init)
+        else:
+            self.map_encoder = None
+            self.node_map_sampler = None
+            self.node_map_fusion = None
 
         self.encoder = Encoder(embedding_dim=embedding_dim, n_head=8, n_layer=6)
         self.decoder = Decoder(embedding_dim=embedding_dim, n_head=8, n_layer=1)
@@ -419,24 +433,26 @@ class QNet(nn.Module):
 
     def encode_graph(self, node_inputs, node_padding_mask, edge_mask, map_inputs=None):
         embedding_feature = self.initial_embedding(node_inputs)
-        map_feature_map = self.map_encoder(map_inputs)
-        map_height, map_width = map_inputs.shape[-2:]
-        node_map_features = self.node_map_sampler(
-            map_feature_map,
-            node_inputs,
-            map_height,
-            map_width,
-            node_padding_mask,
-        )
-        embedding_feature, gate = self.node_map_fusion(embedding_feature, node_map_features)
+        diagnostics = {}
+        if self.use_map_inputs:
+            map_feature_map = self.map_encoder(map_inputs)
+            map_height, map_width = map_inputs.shape[-2:]
+            node_map_features = self.node_map_sampler(
+                map_feature_map,
+                node_inputs,
+                map_height,
+                map_width,
+                node_padding_mask,
+            )
+            embedding_feature, gate = self.node_map_fusion(embedding_feature, node_map_features)
+            diagnostics = {
+                "map_feature_std": node_map_features.std(unbiased=False).detach(),
+                "fusion_gate_mean": gate.mean().detach(),
+                "fusion_gate_std": gate.std(unbiased=False).detach(),
+                "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
+            }
         embedding_feature = self.encoder(src=embedding_feature, key_padding_mask=node_padding_mask, attn_mask=edge_mask)
 
-        diagnostics = {
-            "map_feature_std": node_map_features.std(unbiased=False).detach(),
-            "fusion_gate_mean": gate.mean().detach(),
-            "fusion_gate_std": gate.std(unbiased=False).detach(),
-            "node_map_feature_norm": torch.norm(node_map_features, dim=-1).detach(),
-        }
         return embedding_feature, diagnostics
 
     def _validate_action_inputs(self, action_inputs, edge_inputs):

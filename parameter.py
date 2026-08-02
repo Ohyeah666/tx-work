@@ -3,6 +3,8 @@ MINIMUM_BUFFER_SIZE = 2000
 BATCH_SIZE = 128
 INPUT_DIM = 4
 EMBEDDING_DIM = 128
+# 是否使用地图输入
+USE_MAP_INPUTS = False
 MAP_INPUT_CHANNELS = 5
 MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
@@ -28,14 +30,14 @@ MAP_LR = 1e-5           # map_inputs 分支的学习率
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'cnn_edge_dist'
+FOLDER_NAME = 'only_edge_dist'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
 LOAD_MODEL = False  # map-enhanced model is trained from scratch by default
 SAVE_IMG_GAP = 100
-ARCHIVE_CHECKPOINT_START_EPISODE = 12000
-ARCHIVE_CHECKPOINT_GAP = 800
+ARCHIVE_CHECKPOINT_START_EPISODE = 14400
+ARCHIVE_CHECKPOINT_GAP = 400
 # Total 17600 episodes; archive every 800 from 12000, then every 320 after 16000.
 ARCHIVE_CHECKPOINT_FREQUENT_START_EPISODE = 16000
 ARCHIVE_CHECKPOINT_FREQUENT_GAP = 160

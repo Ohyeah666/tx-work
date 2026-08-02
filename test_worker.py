@@ -7,9 +7,11 @@ import torch
 import matplotlib.pyplot as plt
 from action_features import build_edge_dist_action_inputs, build_padded_current_edge_inputs
 from env import Env
-from map_input import build_semantic_map_input
 from model import PolicyNet
 from test_parameter import *
+
+if USE_MAP_INPUTS:
+    from map_input import build_semantic_map_input
 
 __test__ = False
 
@@ -35,6 +37,8 @@ class TestWorker:
         self.perf_metrics = dict()
 
     def build_map_inputs(self):
+        if not USE_MAP_INPUTS:
+            return None
         map_inputs = build_semantic_map_input(
             self.env.downsampled_belief,
             self.env.frontiers,

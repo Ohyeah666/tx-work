@@ -11,10 +11,12 @@ class Runner(object):
         self.device = torch.device('cuda') if USE_GPU else torch.device('cpu')
         self.local_network = PolicyNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                                        map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                                       action_input_dim=ACTION_FEATURE_DIM)
+                                       action_input_dim=ACTION_FEATURE_DIM,
+                                       use_map_inputs=USE_MAP_INPUTS)
         self.local_q_net = QNet(INPUT_DIM, EMBEDDING_DIM, MAP_INPUT_CHANNELS, MAP_FEATURE_DIM,
                                 map_resolution=4, gate_bias_init=MAP_GATE_BIAS_INIT,
-                                action_input_dim=ACTION_FEATURE_DIM)
+                                action_input_dim=ACTION_FEATURE_DIM,
+                                use_map_inputs=USE_MAP_INPUTS)
         self.local_network.to(self.device)
         self.local_q_net.to(self.device)
 
