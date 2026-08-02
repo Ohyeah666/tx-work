@@ -17,7 +17,7 @@ USE_GPU = False  # do you want to use GPUS?
 NUM_GPU = 0  # the number of GPUs
 NUM_META_AGENT = 16  # the number of processes
 FOLDER_NAME = 'cnn_edge_dist'
-model_path = f'model/{FOLDER_NAME}/run_20260713_110340__elapsed_34h16m58s'
+model_path = f'model/{FOLDER_NAME}/run_20260801_091058__elapsed_26h11m00s'
 
 
 TEST_SET_NAME = 'test'  # choose from 'complex', 'medium', 'easy', and 'test'

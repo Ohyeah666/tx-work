@@ -74,7 +74,7 @@ def run_test():
     if device.type == 'cuda':
         checkpoint = torch.load(f'{model_path}/checkpoint.pth')
     else:
-        checkpoint = torch.load(f'{model_path}/checkpoint_episode_17600.pth', map_location = torch.device('cpu'))
+        checkpoint = torch.load(f'{model_path}/checkpoint_episode_14400.pth', map_location = torch.device('cpu'))
 
     global_network.load_state_dict(checkpoint['policy_model'])
 
