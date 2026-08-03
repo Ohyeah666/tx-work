@@ -4,15 +4,15 @@ BATCH_SIZE = 128
 INPUT_DIM = 4
 EMBEDDING_DIM = 128
 # 是否使用地图输入
-USE_MAP_INPUTS = False
+USE_MAP_INPUTS = True
 MAP_INPUT_CHANNELS = 5
 MAP_FEATURE_DIM = 64
 FRONTIER_HEATMAP_SIGMA = 3.0
 MAP_GATE_BIAS_INIT = -2.0       # -2.0 时初始 gate 约 sigmoid(-2)=0.119。-2.0/-1.5/-1.0
 DIAGNOSTIC_IMG_GAP = 200
 # 关于 edge_dist 的参数
-USE_ACTION_FEATURES = True
-USE_ACTION_FEATURE_EDGE_DIST = True  # edge_dist_norm_j
+USE_ACTION_FEATURES = False
+USE_ACTION_FEATURE_EDGE_DIST = False  # edge_dist_norm_j
 ACTION_FEATURE_DIM = int(USE_ACTION_FEATURES) * int(USE_ACTION_FEATURE_EDGE_DIST)
 GRAPH_DISTANCE_NORMALIZER = 640
 EDGE_DIST_MAX_NORM = 2.0
@@ -30,7 +30,7 @@ MAP_LR = 1e-5           # map_inputs 分支的学习率
 GAMMA = 1
 DECAY_STEP = 256  # not use
 SUMMARY_WINDOW = 32
-FOLDER_NAME = 'only_edge_dist'
+FOLDER_NAME = 'only_cnn_stride4_dilation'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'

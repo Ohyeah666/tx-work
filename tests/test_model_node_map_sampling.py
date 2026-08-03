@@ -36,7 +36,7 @@ def test_spatial_map_encoder_outputs_spatial_feature_map():
 
     feature_map = encoder(map_inputs)
 
-    assert feature_map.shape == (2, 64, 15, 20)
+    assert feature_map.shape == (2, 64, 30, 40)
     assert torch.isfinite(feature_map).all()
 
 

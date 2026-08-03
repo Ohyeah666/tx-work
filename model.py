@@ -211,9 +211,27 @@ class Decoder(nn.Module):
         return tgt, w
 
 
+class ResidualDilatedBlock(nn.Module):
+    def __init__(self, channels, dilation=1):
+        super(ResidualDilatedBlock, self).__init__()
+        groups = _compatible_group_count(channels, 8)
+        self.block = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, padding=dilation, dilation=dilation),
+            nn.GroupNorm(num_groups=groups, num_channels=channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=3, padding=dilation, dilation=dilation),
+            nn.GroupNorm(num_groups=groups, num_channels=channels),
+        )
+        self.activation = nn.ReLU(inplace=True)
+
+    def forward(self, inputs):
+        return self.activation(inputs + self.block(inputs))
+
+
 class SpatialMapEncoder(nn.Module):
     def __init__(self, input_channels=5, feature_dim=64):
         super(SpatialMapEncoder, self).__init__()
+        feature_groups = _compatible_group_count(feature_dim, 8)
         self.encoder = nn.Sequential(
             nn.Conv2d(input_channels, 16, kernel_size=3, stride=2, padding=1),
             nn.GroupNorm(num_groups=4, num_channels=16),
@@ -221,9 +239,12 @@ class SpatialMapEncoder(nn.Module):
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             nn.GroupNorm(num_groups=4, num_channels=32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, feature_dim, kernel_size=3, stride=2, padding=1),
-            nn.GroupNorm(num_groups=_compatible_group_count(feature_dim, 8), num_channels=feature_dim),
+            nn.Conv2d(32, feature_dim, kernel_size=3, stride=1, padding=1),
+            nn.GroupNorm(num_groups=feature_groups, num_channels=feature_dim),
             nn.ReLU(inplace=True),
+            ResidualDilatedBlock(feature_dim, dilation=1),
+            ResidualDilatedBlock(feature_dim, dilation=2),
+            ResidualDilatedBlock(feature_dim, dilation=4),
         )
 
     def forward(self, map_inputs):
